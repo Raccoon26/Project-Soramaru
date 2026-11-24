@@ -1,6 +1,6 @@
 # 프로젝트 상태
 
-**2026-11-24(JST) · DEV-00 COMPLETE.** PR #1을 `main`에 병합했고 로컬 `main`을 갱신했다. DEV-01은 사용자 요청에 따라 미착수 상태다.
+**2026-11-24(JST) · DEV-00 COMPLETE.** PR #1을 `main`에 병합했고 로컬 `main`을 갱신했다.
 
 | 영역 | 결과 |
 |---|---|
@@ -17,3 +17,7 @@
 - Android 실제 기기의 성능·배터리 및 릴리스 서명은 DEV-16/17에서 확인한다.
 - 정식 명칭·초상·콘텐츠의 사용 허락과 실제 운영 계정 인수는 [권리 상태](RIGHTS_STATUS.md)의 대기 항목이다. `references/`와 로컬 파생물은 계속 Git에서 제외한다.
 - DEV-00 운영 리소스, 도메인, 유료 계약, 서비스 배포는 생성된 내역이 없다. R2 운영 활성화는 청구 조건 확인과 승인 후 결정한다. Public GitHub Actions는 표준 호스티드 러너를 사용하며 워크플로에 배포 권한이나 아티팩트 업로드 단계가 없다.
+
+## DEV-01 디자인 시스템
+
+DEV-00 최종 main `65dc893` 위에서 토큰·공통 컴포넌트·대표 프리뷰 10개를 구현했다. 실제 검증 결과는 [테스트 보고](TEST_REPORT.md), UX 결정은 [디자인 시스템](DESIGN_SYSTEM.md), 제출·CI·병합 기록은 [DEV-01 PR](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-01-design-system)에서 확인한다. DEV-02의 독립 탭 스택 및 복귀·링크 통합은 다음 별도 단계다.

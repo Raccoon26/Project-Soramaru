@@ -14,3 +14,9 @@ DEV-00에서 배포 및 스토어 등록을 수행하지 않는다. 아래는 DE
 - [ ] RC 테스트 결과와 모든 요구사항의 상태를 검토했다. iOS/Google Play 가입비/계약은 서버 모델에서 제외하며 별도 승인 필요. 실제 서비스 공개/운영 배포는 이 저장소 초기 요청 범위 밖이다.
 
 [Flutter iOS 설정](https://docs.flutter.dev/platform-integration/ios/setup) · [Apple 개발자 계정](https://developer.apple.com/help/account/basics/about-your-developer-account) · [Google Play 등록](https://support.google.com/googleplay/android-developer/answer/6112435) · [보안 정책](SECURITY_POLICY.md)
+
+## DEV-01 이후 유지할 항목
+
+- [ ] 출시 빌드에서 `DEV_PREVIEW`를 기본 비활성 상태로 두고 카탈로그·합성 콘텐츠 경로 비노출을 실제 기기에서 확인한다.
+- [ ] VoiceOver·TalkBack의 일본어 읽기 순서, 200% 시스템 글꼴, 회전, 실제 키보드와 뷰 인셋을 확인한다.
+- [ ] 실제 기기 프레임 시간·메모리·배터리를 네트워크와 재생 기능 추가 후 측정한다.
