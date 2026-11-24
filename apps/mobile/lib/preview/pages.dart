@@ -58,18 +58,40 @@ class PreviewPage extends StatelessWidget {
   );
 }
 
+class ComposeDraft {
+  const ComposeDraft(this.body, this.tags, this.photos);
+  final String body;
+  final List<String> tags;
+  final List<CoverScene> photos;
+}
+
 class ComposePreview extends StatefulWidget {
-  const ComposePreview({super.key});
+  const ComposePreview({
+    super.key,
+    this.onExit,
+    this.choosePhoto,
+    this.chooseTag,
+    this.initialDraft,
+    this.onSaveDraft,
+  });
+  final VoidCallback? onExit;
+  final Future<CoverScene?> Function()? choosePhoto;
+  final Future<String?> Function()? chooseTag;
+  final ComposeDraft? initialDraft;
+  final ValueChanged<ComposeDraft>? onSaveDraft;
   @override
   State<ComposePreview> createState() => _ComposePreviewState();
 }
 
 class _ComposePreviewState extends State<ComposePreview> {
-  final _body = TextEditingController();
+  late final _body = TextEditingController(text: widget.initialDraft?.body);
   final _tag = TextEditingController();
-  final _tags = <String>['きょうの空'];
-  int _attachments = 0;
-  int _count = 0;
+  late final _tags = <String>[
+    ...(widget.initialDraft?.tags ?? ['きょうの空']),
+  ];
+  late final _photos = <CoverScene>[...?widget.initialDraft?.photos];
+  int get _attachments => _photos.length;
+  late int _count = _body.text.characters.length;
   bool _confirming = false;
   bool get _dirty =>
       _count > 0 ||
@@ -85,7 +107,9 @@ class _ComposePreviewState extends State<ComposePreview> {
   }
 
   void _exit() {
-    if (context.canPop()) {
+    if (widget.onExit != null) {
+      widget.onExit!();
+    } else if (context.canPop()) {
       context.pop();
     } else {
       context.go('/');
@@ -99,6 +123,37 @@ class _ComposePreviewState extends State<ComposePreview> {
       return;
     }
     _confirming = true;
+    if (widget.onSaveDraft != null) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (dialog) => AlertDialog(
+          scrollable: true,
+          title: const Text('編集を終了しますか？'),
+          content: const Text('下書きはこのセッション内でのみ保持できます。'),
+          actions: [
+            TextButton(
+              autofocus: true,
+              onPressed: () => Navigator.pop(dialog),
+              child: const Text('編集を続ける'),
+            ),
+            ActionButton(
+              '編集を破棄',
+              kind: ButtonKind.danger,
+              onPressed: () => Navigator.pop(dialog, 'discard'),
+            ),
+            ActionButton(
+              '一時保存して戻る',
+              onPressed: () => Navigator.pop(dialog, 'save'),
+            ),
+          ],
+        ),
+      );
+      _confirming = false;
+      if (!mounted || choice == null) return;
+      if (choice == 'save') _saveDraft();
+      _exit();
+      return;
+    }
     final confirmed = await confirmAction(
       context,
       title: '編集をやめますか？',
@@ -113,6 +168,35 @@ class _ComposePreviewState extends State<ComposePreview> {
   void _previewSubmit() {
     FocusScope.of(context).unfocus();
     showNotice(context, 'プレビューの投稿内容を確認しました。');
+  }
+
+  void _saveDraft() {
+    widget.onSaveDraft?.call(
+      ComposeDraft(
+        _body.text,
+        List.unmodifiable(_tags),
+        List.unmodifiable(_photos),
+      ),
+    );
+  }
+
+  Future<void> _selectTag() async {
+    final choose = widget.chooseTag;
+    if (choose == null) {
+      _addTag();
+      return;
+    }
+    final tag = await choose();
+    if (mounted && tag != null && !_tags.contains(tag) && _tags.length < 5) {
+      setState(() => _tags.add(tag));
+    }
+  }
+
+  Future<void> _selectPhoto() async {
+    final photo = await widget.choosePhoto!();
+    if (mounted && photo != null && _photos.length < 3) {
+      setState(() => _photos.add(photo));
+    }
   }
 
   void _addTag() {
@@ -161,13 +245,14 @@ class _ComposePreviewState extends State<ComposePreview> {
             ],
           ),
           const SizedBox(height: Space.sm),
-          InputField('タグを入力', controller: _tag, maxLength: 24),
+          if (widget.chooseTag == null)
+            InputField('タグを入力', controller: _tag, maxLength: 24),
           Align(
             alignment: Alignment.centerLeft,
             child: ActionButton(
               'タグを追加',
               kind: ButtonKind.text,
-              onPressed: _addTag,
+              onPressed: _selectTag,
             ),
           ),
           const SizedBox(height: Space.gap),
@@ -181,12 +266,12 @@ class _ComposePreviewState extends State<ComposePreview> {
                   for (var index = 0; index < _attachments; index++)
                     SizedBox(
                       width: 80,
-                      child: CoverArt(CoverScene.values[index], ratio: 1),
+                      child: CoverArt(_photos[index], ratio: 1),
                     ),
                   IconAction(
                     Icons.remove_circle_outline,
                     '画像を外す',
-                    onPressed: () => setState(() => _attachments--),
+                    onPressed: () => setState(_photos.removeLast),
                   ),
                 ],
               ),
@@ -196,24 +281,30 @@ class _ComposePreviewState extends State<ComposePreview> {
             child: AttachmentButton(
               count: _attachments,
               limit: 3,
-              onPressed: () => showActions(context, '画像を追加', [
-                const Padding(
-                  padding: EdgeInsets.all(Space.edge),
-                  child: Text('プレビューでは写真へのアクセスを求めず、イラストを追加します。'),
-                ),
-                Builder(
-                  builder: (sheetContext) => SettingsRow(
-                    'サンプル画像を追加',
-                    icon: Icons.image_outlined,
-                    onTap: () {
-                      Navigator.pop(sheetContext);
-                      if (mounted && _attachments < 3) {
-                        setState(() => _attachments++);
-                      }
-                    },
-                  ),
-                ),
-              ]),
+              onPressed: widget.choosePhoto != null
+                  ? _selectPhoto
+                  : () => showActions(context, '画像を追加', [
+                      const Padding(
+                        padding: EdgeInsets.all(Space.edge),
+                        child: Text('プレビューでは写真へのアクセスを求めず、イラストを追加します。'),
+                      ),
+                      Builder(
+                        builder: (sheetContext) => SettingsRow(
+                          'サンプル画像を追加',
+                          icon: Icons.image_outlined,
+                          onTap: () {
+                            Navigator.pop(sheetContext);
+                            if (mounted && _attachments < 3) {
+                              setState(
+                                () => _photos.add(
+                                  CoverScene.values[_attachments],
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ]),
             ),
           ),
           const SizedBox(height: Space.xl),
@@ -225,7 +316,15 @@ class _ComposePreviewState extends State<ComposePreview> {
                 '下書きの確認',
                 kind: ButtonKind.outline,
                 onPressed: _dirty
-                    ? () => showNotice(context, '入力内容を確認しました。')
+                    ? () {
+                        _saveDraft();
+                        showNotice(
+                          context,
+                          widget.onSaveDraft == null
+                              ? '入力内容を確認しました。'
+                              : 'このセッションで下書きを保持しました。',
+                        );
+                      }
                     : null,
               ),
               ActionButton(
@@ -326,8 +425,9 @@ class _MediaListPreviewState extends State<MediaListPreview> {
 }
 
 class PlayerPreview extends StatefulWidget {
-  const PlayerPreview({super.key, this.initialTrack = 0});
+  const PlayerPreview({super.key, this.initialTrack = 0, this.onBack});
   final int initialTrack;
+  final VoidCallback? onBack;
 
   @override
   State<PlayerPreview> createState() => _PlayerPreviewState();
@@ -358,6 +458,7 @@ class _PlayerPreviewState extends State<PlayerPreview> {
     return PreviewPage(
       '音声プレーヤー',
       close: true,
+      onBack: widget.onBack,
       child: ListView(
         padding: const EdgeInsets.all(Space.edge),
         children: [

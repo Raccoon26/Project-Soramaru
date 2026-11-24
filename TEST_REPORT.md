@@ -37,3 +37,22 @@
 - Windows Flutter 번들과 ARM64 디버그 APK 빌드 및 `apksigner verify`를 통과했다. APK는 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`다.
 - Flutter 프리뷰는 네트워크·미디어 디코딩·상태 카탈로그의 지속 애니메이션 없이 동작하도록 구성했다. 피드/알림은 지연 생성, 그림은 고정 도형 및 분리된 페인트 경계를 사용한다. 실제 기기 프레임 시간·배터리·VoiceOver·TalkBack·iOS 빌드는 미측정 또는 미검증이다.
 - DEV-00 문서의 4커밋/104 blob은 PR #1 병합 전 원격 감사 범위다. 6커밋/112 blob은 DEV-00 문서 PR #2 병합 후 원격 범위다. 둘 다 도달 가능한 브랜치·태그·PR 기준이고 동일 blob은 중복 집계하지 않았다. DEV-01에서 원본 54건의 SHA-256을 다시 비교했다.
+
+## DEV-02 내비게이션 및 통합 검사
+
+| 검사 | 결과와 근거 |
+|---|---|
+| Windows Flutter | 잠금 파일 재현, 포맷, 분석 통과. 기존 29건과 신규 45건을 포함한 기본 테스트 74건. DEV-01 Windows Golden 2건은 기존 이미지로 비교했다. Linux는 CI에서 기존 Linux Golden으로 검사한다. |
+| 화면과 이동 | 5개 루트·탭별 스택·재선택·스크롤, 작성 텍스트·태그·사진과 확인 대화상자, 헤더·시스템 뒤로 및 바텀 시트, 회원증·사진·플레이어 전체 화면, 콘텐츠·프로필 대표 경로를 테스트했다. 알림 8종의 이동·복귀 및 미읽음 수 유지를 확인했다. |
+| 복원과 일본어 | 탭 간 왕복, 백그라운드 복귀, 프로세스 재생성, 계정 변경·만료, 텍스트 복원 제외. 화면 제목·숫자·개수, JST 자정·시간·상대 시간 형식을 검증했다. |
+| 접근성 및 레이아웃 | 320/390/430/768dp × 100/130/200%에서 DEV-02 6종(72회)과 DEV-01 10종(120회)을 확인했다. 회전, Safe Area, 키보드 인셋, iOS 전환 유형·제스처 허용 조건, 감소 모션은 위젯 테스트로 검사했다. |
+| 링크와 세션 | 허용 유형 9개, 콜드/웜, 로그인 후 복귀, 만료·취소, 없는/삭제/권한 없는 대상, 외부 URL·중복 query·길이·인코딩·공식 경로 차단을 검사했다. |
+| Flutter 번들과 Android | Flutter 번들, ARM64 디버그 APK, APK 서명 v2 검증 통과. 패키지 `dev.soramaru.bootstrap`, minSdk 24, targetSdk 36. 두 프리뷰 플래그를 모두 켠 ARM64 릴리스 APK도 빌드해 AOT 페이로드에서 합성 로그인·공식 화면·개발 딥링크의 대표 문자열이 빠지고 대기 화면 문자열이 들어 있음을 확인했다. 연결된 Android 기기가 없어 APK 실행은 미검증이다. |
+| API 및 저장소 | ESLint·TypeScript 검사, API 테스트 3건, API 번들, actionlint, `check:repo` 통과. 기존 요구사항 125개, 참조 이미지 기록 53개, 문서 20개. |
+| 공개 안전 검사 | 원본 54개 SHA-256 일치. 원격이 광고한 브랜치·태그·PR의 도달 이력과 로컬 이력에서 비밀·개인정보 패턴·보호된 참조 파일을 검사했다. npm audit 0건, Flutter 잠금 파일의 Pub 호스팅 패키지 35개 OSV 조회 0건. |
+| CI와 보호 | [DEV-02 PR과 Checks](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-02-navigation)와 [main 실행 기록](https://github.com/Raccoon26/Project-Soramaru/actions/workflows/ci.yml?query=branch%3Amain)에서 원격 증거를 확인한다. |
+| 기기 성능·플랫폼 | 피드·알림 지연 렌더와 탭별 지연 진입, 컨트롤러 해제, 세션 세대마다 리스너/라우터 폐기, 전환 중 중복 열기 억제를 코드와 회귀 테스트로 확인했다. 프레임 시간·메모리·배터리, iOS 빌드·실제 제스처, VoiceOver·TalkBack은 미측정 또는 미검증이다. |
+
+회귀 검사에서 웜 링크의 로그인 대기 대상 만료 시 로그인 화면에 남는 문제와 알림 복귀 뒤 대상 탭에 상세가 남는 문제를 발견했다. 세션 전환 처리와 스택 기록 순서를 고쳤으며 동일 목적지가 이미 열린 경우도 테스트했다. 작성 캡처에서 테스트 글꼴에 없던 한자는 DEV-02 전용 OFL 부분집합에 추가했다. 기존 Golden 파일은 유지했다.
+
+`apps/mobile`에서 `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-pub`, `flutter test --no-pub`, `flutter build bundle --no-pub`, `flutter build apk --debug --no-pub --target-platform android-arm64`를 실행한다. `flutter test --no-pub test/navigation_layout_test.dart --dart-define=CAPTURE_DEV02=true`는 585×1230 PNG 12장을 로컬 `.local/dev-02-preview/`에 쓴다. Windows 프로젝트 SDK·캐시·빌드·캡처는 E:를 사용한다. 실제 운영 리소스 생성과 배포 없이 확인했다. [OSV 일괄 조회](https://google.github.io/osv.dev/post-v1-querybatch/)

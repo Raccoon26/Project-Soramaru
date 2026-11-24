@@ -57,8 +57,14 @@ APK는 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`에 생성됩니
 - [비용](COST_POLICY.md), [보안](SECURITY_POLICY.md), [운영](OPERATION_GUIDE.md), [콘텐츠](CONTENT_GUIDE.md), [권리](RIGHTS_STATUS.md), [출시 점검](RELEASE_CHECKLIST.md)
 - [개발 규칙](AGENTS.md)과 로컬 `references/` 격리 규칙을 적용합니다.
 
-## DEV-01 프리뷰
+## DEV-02 탐색과 개발용 프리뷰
 
-디버그 실행에서는 다섯 하단 메뉴와 대표 화면을 확인할 수 있습니다. `その他 → コンポーネントと画面状態`에서 공유 UI와 상태 안내를 확인합니다. 출시 빌드에서는 `DEV_PREVIEW`가 기본적으로 꺼집니다. 사진·음성 화면은 로컬 합성 콘텐츠를 사용합니다.
+디버그 기본 시작은 다섯 하단 탭의 DEV-02 내비게이션입니다. `その他 → 画面状態と操作`에서 공용 상태를 볼 수 있습니다. `--dart-define=DEV_LEGACY_PREVIEW=true`로 DEV-01 모드, `--dart-define=DEV_PREVIEW=false`로 개발 진입을 끈 상태를 실행합니다. 릴리스는 플래그 값에 관계없이 개발용 로그인·합성 경로를 차단하고 대기 화면을 엽니다. [라우트와 복원 정책](NAVIGATION_GUIDE.md)
 
-앱 경로에서 `flutter test`로 크기·글꼴 확대·Golden 회귀를 실행합니다. `flutter test test/preview_golden_test.dart --dart-define=CAPTURE_DEV01=true`로 `.local/dev-01-preview/`에 대표 화면 PNG를 생성합니다. 두 Golden 검사는 Windows와 Linux용 합성 기준 이미지를 각각 사용합니다. [디자인 시스템](DESIGN_SYSTEM.md) · [검증 기록](TEST_REPORT.md)
+앱 경로에서 `flutter test --no-pub`로 계정·5탭·링크·복원·접근성·Golden을 검사합니다. 아래 옵션은 대표 화면을 프로젝트의 `.local/dev-02-preview/`에 저장합니다.
+
+```powershell
+& $flutter test --no-pub test/navigation_layout_test.dart --dart-define=CAPTURE_DEV02=true
+```
+
+DEV-01 캡처는 `flutter test test/preview_golden_test.dart --dart-define=CAPTURE_DEV01=true`로 생성합니다. 기존 Golden은 Windows와 Linux에서 운영체제별 합성 기준을 사용합니다. [디자인 시스템](DESIGN_SYSTEM.md) · [검증 기록](TEST_REPORT.md)

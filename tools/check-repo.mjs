@@ -14,6 +14,7 @@ const documents = [
   'SCREEN_INVENTORY.md', 'ARCHITECTURE.md', 'DATABASE_DESIGN.md', 'API_DESIGN.md',
   'COST_POLICY.md', 'SECURITY_POLICY.md', 'CONTENT_GUIDE.md', 'RIGHTS_STATUS.md',
   'TEST_REPORT.md', 'RELEASE_CHECKLIST.md', 'OPERATION_GUIDE.md', 'AGENTS.md',
+  'NAVIGATION_GUIDE.md',
 ];
 const rows = (filename, pattern) =>
   read(filename).split(/\r?\n/).filter((line) => pattern.test(line))

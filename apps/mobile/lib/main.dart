@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'navigation/navigation_app.dart';
 import 'preview/home.dart';
 import 'preview/pages.dart';
 import 'ui/design.dart';
@@ -12,7 +13,17 @@ const _enablePreview = bool.fromEnvironment(
   defaultValue: !kReleaseMode,
 );
 
-void main() => runApp(const BootstrapApp(preview: _enablePreview));
+const _legacyPreview = bool.fromEnvironment('DEV_LEGACY_PREVIEW');
+
+void main() {
+  if (kReleaseMode || !_enablePreview) {
+    runApp(const BootstrapApp(preview: false));
+  } else if (_legacyPreview) {
+    runApp(const BootstrapApp());
+  } else {
+    runApp(const ProviderScope(child: NavigationApp()));
+  }
+}
 
 class BootstrapApp extends StatelessWidget {
   const BootstrapApp({
@@ -28,7 +39,7 @@ class BootstrapApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (preview) {
+    if (!kReleaseMode && preview) {
       return ProviderScope(
         overrides: [_initialLocation.overrideWithValue(initialLocation)],
         child: _PreviewApp(fontFamily: fontFamily),
