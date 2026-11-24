@@ -53,6 +53,12 @@ for (const file of ignored) {
 }
 const paths = git('ls-files', '-z').split('\0').filter(Boolean);
 const sdkImages = /^apps\/mobile\/(android\/app\/src\/main\/res\/mipmap-[a-z]+\/ic_launcher\.png|ios\/Runner\/Assets\.xcassets\/(AppIcon\.appiconset|LaunchImage\.imageset)\/[a-z0-9@_.-]+\.png)$/i;
+const syntheticGoldens = new Set([
+  'apps/mobile/test/goldens/category-and-empty.png',
+  'apps/mobile/test/goldens/fan-feed.png',
+  'apps/mobile/test/goldens/linux/category-and-empty.png',
+  'apps/mobile/test/goldens/linux/fan-feed.png',
+]);
 for (const path of paths) {
   assert.doesNotMatch(path, /^(references|\.local)\/|\.(pem|p12|p8|jks|keystore|sqlite3?|mobileprovision)$/i,
     'Local data or credential path: ' + path);
@@ -61,7 +67,8 @@ for (const path of paths) {
       'Credential configuration path: ' + path);
   }
   if (/\.(png|jpe?g|heic|webp|gif|mp4|mov|m4a|wav|zip)$/i.test(path)) {
-    assert.match(path, sdkImages, 'Review media before changing the asset allowlist: ' + path);
+    assert.ok(sdkImages.test(path) || syntheticGoldens.has(path),
+      'Review media before changing the asset allowlist: ' + path);
   }
 }
 
