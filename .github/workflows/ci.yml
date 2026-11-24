@@ -63,3 +63,11 @@ jobs:
           flutter --suppress-analytics analyze --no-pub
           flutter --suppress-analytics test --no-pub
           flutter --suppress-analytics build apk --debug --no-pub --target-platform android-arm64
+      - name: Collect synthetic Linux render for golden review
+        if: failure() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dev01-synthetic-linux-golden-review
+          retention-days: 1
+          if-no-files-found: ignore
+          path: apps/mobile/test/failures/*_testImage.png
