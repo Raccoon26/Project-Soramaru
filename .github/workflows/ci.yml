@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api-and-repository:
+    name: API and repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    env:
+      CLOUDFLARE_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.19.0'
+          package-manager-cache: false
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run check:repo
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:api
+
+  flutter:
+    name: Flutter lint, test and Android build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Install Flutter 3.50.1
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/flutter.tar.xz"
+          curl --fail --location --retry 3 --silent --show-error \
+            --output "$archive" \
+            https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.50.1-stable.tar.xz
+          echo "4ad17fc8462fbcef2ba19ff4a78c0a16b7147fde1add8578e267ea62cdb92678  $archive" | sha256sum --check
+          tar -xJf "$archive" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Analyze, test and build
+        working-directory: apps/mobile
+        env:
+          PUB_CACHE: ${{ runner.temp }}/soramaru-pub
+          GRADLE_USER_HOME: ${{ runner.temp }}/soramaru-gradle
+        run: |
+          flutter --suppress-analytics pub get --enforce-lockfile
+          dart format --output=none --set-exit-if-changed lib test
+          flutter --suppress-analytics analyze --no-pub
+          flutter --suppress-analytics test --no-pub
+          flutter --suppress-analytics build apk --debug --no-pub --target-platform android-arm64
