@@ -20,4 +20,18 @@
 
 ## DEV-01 디자인 시스템
 
-DEV-00 최종 main `65dc893` 위에서 토큰·공통 컴포넌트·대표 프리뷰 10개를 구현했다. 실제 검증 결과는 [테스트 보고](TEST_REPORT.md), UX 결정은 [디자인 시스템](DESIGN_SYSTEM.md), 제출·CI·병합 기록은 [DEV-01 PR](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-01-design-system)에서 확인한다. DEV-02의 독립 탭 스택 및 복귀·링크 통합은 다음 별도 단계다.
+DEV-01 **COMPLETE**. DEV-00 최종 main 위에서 토큰·공통 컴포넌트·대표 프리뷰 10개를 구현했으며 [PR #3](https://github.com/Raccoon26/Project-Soramaru/pull/3)으로 병합했다. DEV-01 최종 main은 eb1bd5e다. 검증 결과는 [테스트 보고](TEST_REPORT.md), UX 결정은 [디자인 시스템](DESIGN_SYSTEM.md)에 있다.
+
+## DEV-02 모바일 내비게이션
+
+DEV-01 최종 main에서 `dev/dev-02-navigation`으로 진행했다.
+
+| 영역 | 결과 |
+|---|---|
+| 모바일 화면 | 58개 화면 경로와 루트 리다이렉트 1개. 하단 5개 Navigator, 전체 화면 닫기, 작성 보존, 알림 8종 복귀, 일본어 문구·JST 표시. |
+| 세션과 링크 | 합성 세션·역할, 계정 전환 시 초기화, 수명 범위를 나눈 복원, 허용 목록 기반 링크 9종. 서버 권한과 푸시 및 운영 OS 연결은 예정 단계에서 검증한다. |
+| Windows 자동 테스트 | 기존 29건과 신규 45건을 포함한 Flutter 74건, API 3건. 운영체제별 Golden 기준은 유지한다. 상세 범위는 [테스트 보고](TEST_REPORT.md)에 기록했다. |
+| 자료·비용 | 원본 54개는 로컬에서 보호한다. 실제 운영 인프라·도메인·자동 과금 설정을 생성하지 않았으며 추가 서버 운영비는 0엔이다. |
+| 인수인계 | [라우트·복원 계약](NAVIGATION_GUIDE.md), [DEV-02 PR 및 검사](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-02-navigation), [main CI](https://github.com/Raccoon26/Project-Soramaru/actions/workflows/ci.yml?query=branch%3Amain). |
+
+실제 iOS 빌드·제스처, VoiceOver·TalkBack, 실제 기기 프레임 시간·메모리·배터리는 [출시 점검](RELEASE_CHECKLIST.md)에 둔다. DEV-03의 Worker·D1·비용 차단 구현은 별도 단계다.

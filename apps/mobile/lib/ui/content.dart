@@ -231,12 +231,14 @@ class PostCard extends StatelessWidget {
   const PostCard(
     this.post, {
     super.key,
+    this.onOpen,
     this.onLike,
     this.onComment,
     this.onShare,
     this.onMore,
   });
   final FeedPost post;
+  final VoidCallback? onOpen;
   final VoidCallback? onLike;
   final VoidCallback? onComment;
   final VoidCallback? onShare;
@@ -307,7 +309,19 @@ class PostCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: Space.gap),
-              Text(post.body),
+              if (onOpen == null)
+                Text(post.body)
+              else
+                Semantics(
+                  button: true,
+                  child: InkWell(
+                    onTap: onOpen,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minHeight: Space.touch),
+                      child: Text(post.body),
+                    ),
+                  ),
+                ),
               if (post.tags.isNotEmpty) ...[
                 const SizedBox(height: Space.sm),
                 Wrap(

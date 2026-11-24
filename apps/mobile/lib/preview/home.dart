@@ -48,7 +48,7 @@ class PreviewHome extends ConsumerWidget {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: Space.maxContent),
                   child: switch (selected) {
-                    CommunityTab.feed => const _Feed(),
+                    CommunityTab.feed => const FeedPreview(),
                     CommunityTab.content => const _Hub(),
                     CommunityTab.notifications => const _Notifications(),
                     CommunityTab.profile => const _Profile(),
@@ -72,7 +72,7 @@ class PreviewHome extends ConsumerWidget {
   }
 }
 
-const _posts = [
+const sampleFeedPosts = [
   FeedPost(
     author: 'プレビュー編集部',
     time: 'きょう 09:00',
@@ -105,15 +105,44 @@ const _posts = [
   FeedPost(author: '水色ノート', time: 'きのう 17:10', body: 'きょうもおつかれさまです。'),
 ];
 
-class _Feed extends StatefulWidget {
-  const _Feed();
+class FeedPreview extends StatefulWidget {
+  const FeedPreview({
+    super.key,
+    this.onPost,
+    this.onComments,
+    this.onTags,
+    this.controller,
+    this.restorable = false,
+  });
+
+  final ValueChanged<int>? onPost;
+  final ValueChanged<int>? onComments;
+  final VoidCallback? onTags;
+  final ScrollController? controller;
+  final bool restorable;
 
   @override
-  State<_Feed> createState() => _FeedState();
+  State<FeedPreview> createState() => _FeedState();
 }
 
-class _FeedState extends State<_Feed> {
-  FeedCategory _category = FeedCategory.all;
+class _FeedState extends State<FeedPreview> with RestorationMixin {
+  final _index = RestorableInt(0);
+  FeedCategory get _category => FeedCategory.values[_index.value];
+
+  @override
+  String? get restorationId => widget.restorable ? 'feed-filter' : null;
+
+  @override
+  void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
+    registerForRestoration(_index, 'category');
+  }
+
+  @override
+  void dispose() {
+    _index.dispose();
+    super.dispose();
+  }
+
   final _changedLikes = <FeedPost>{};
 
   bool _liked(FeedPost post) => post.liked != _changedLikes.contains(post);
@@ -121,18 +150,22 @@ class _FeedState extends State<_Feed> {
   @override
   Widget build(BuildContext context) {
     final posts = switch (_category) {
-      FeedCategory.all => _posts,
+      FeedCategory.all => sampleFeedPosts,
       FeedCategory.artist => const <FeedPost>[],
-      FeedCategory.official => _posts.where((post) => post.official).toList(),
-      FeedCategory.favorites => _posts.where(_liked).toList(),
+      FeedCategory.official =>
+        sampleFeedPosts.where((post) => post.official).toList(),
+      FeedCategory.favorites => sampleFeedPosts.where(_liked).toList(),
       FeedCategory.tags =>
-        _posts.where((post) => post.tags.isNotEmpty).toList(),
+        sampleFeedPosts.where((post) => post.tags.isNotEmpty).toList(),
     };
     return Column(
       children: [
         CategoryStrip(
           selected: _category,
-          onSelect: (category) => setState(() => _category = category),
+          onSelect: (category) {
+            setState(() => _index.value = category.index);
+            if (category == FeedCategory.tags) widget.onTags?.call();
+          },
         ),
         const Divider(height: 1, thickness: 1),
         Expanded(
@@ -141,6 +174,8 @@ class _FeedState extends State<_Feed> {
               if (mounted) showNotice(context, '一覧を更新しました。');
             },
             child: ListView.builder(
+              controller: widget.controller,
+              restorationId: widget.restorable ? 'feed-list' : null,
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(
                 bottom: Space.navigation + Space.edge,
@@ -155,6 +190,7 @@ class _FeedState extends State<_Feed> {
                 }
                 final post = posts[index];
                 final liked = _liked(post);
+                final sample = sampleFeedPosts.indexOf(post) + 1;
                 return PostCard(
                   FeedPost(
                     author: post.author,
@@ -177,7 +213,12 @@ class _FeedState extends State<_Feed> {
                   onLike: () => setState(() {
                     if (!_changedLikes.add(post)) _changedLikes.remove(post);
                   }),
-                  onComment: () => showNotice(context, 'コメント欄の表示は今後追加します。'),
+                  onOpen: widget.onPost == null
+                      ? null
+                      : () => widget.onPost!(sample),
+                  onComment: widget.onComments == null
+                      ? () => showNotice(context, 'コメント欄の表示は今後追加します。')
+                      : () => widget.onComments!(sample),
                   onShare: () => showNotice(context, 'プレビュー内の投稿です。'),
                   onMore: () => _postOptions(context),
                 );
