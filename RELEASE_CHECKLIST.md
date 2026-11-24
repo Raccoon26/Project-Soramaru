@@ -1,0 +1,16 @@
+# 출시 후보 점검
+
+DEV-00에서 배포 및 스토어 등록을 수행하지 않는다. 아래는 DEV-16/17에서 증거를 확보할 출시 게이트다.
+
+- [ ] 앱 명칭·공식 계정/초상/음원·사진/카드·스토어 미리보기 및 배포 지역 권한이 기록되어 있다.
+- [ ] 일본어 iOS/Android 디바이스에서 설치/업그레이드/저장/삭제와 다섯 탭 접근성·증대 글꼴·Safe Area·상태 전환을 확인했다.
+- [ ] 앱 내 UGC 약관 동의, 필터링, 신고 및 처리, 차단, 지원 연락처가 작동한다. 심사용 테스트 회원/절차를 별도 자격으로 제공한다.
+- [ ] 앱 내와 외부 계정 삭제 요청 URL·접수/검증·연계 데이터 소거·보유 기간 공개가 확인되었다.
+- [ ] Mac Xcode에서 `flutter build ios --simulator`, `flutter build ios --no-codesign` 및 실제 장치 서명/설치를 검사한다. 무료 개발 테스트와 스토어 배포 자격을 분리한다.
+- [ ] APNs signing key·entitlement·권한 거부·재로그인·토큰 갱신, 딥링크 검증 파일, 화면 전환을 실제 iPhone과 Android에서 확인한다.
+- [ ] iOS/Android에서 AAC 96/128, 잠금 화면/이어폰/통화/백그라운드/다운로드/네트워크 만료·재시작을 확인한다. 마이크·사진 권한 설명과 앱의 배터리/메모리 사용을 측정한다.
+- [ ] 개인정보 보존·연령 등급·스토어 Data Safety/Privacy Details·앱 개인정보 정책·라이선스를 승인했다.
+- [ ] MFA·권한/감사 로그·시크릿 방어·R2 비용 한도·예산 차단·서비스 비상 제한·D1/R2 백업 복원을 훈련했다.
+- [ ] RC 테스트 결과와 모든 요구사항의 상태를 검토했다. iOS/Google Play 가입비/계약은 서버 모델에서 제외하며 별도 승인 필요. 실제 서비스 공개/운영 배포는 이 저장소 초기 요청 범위 밖이다.
+
+[Flutter iOS 설정](https://docs.flutter.dev/platform-integration/ios/setup) · [Apple 개발자 계정](https://developer.apple.com/help/account/basics/about-your-developer-account) · [Google Play 등록](https://support.google.com/googleplay/android-developer/answer/6112435) · [보안 정책](SECURITY_POLICY.md)

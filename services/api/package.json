@@ -1,0 +1,17 @@
+{
+  "name": "@soramaru/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --host 127.0.0.1 --port 8787 --strictPort",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@soramaru/shared": "0.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "2.0.0-rc.4",
+    "@cloudflare/config": "1.0.0-rc.4",
+    "vite": "8.3.8"
+  }
+}

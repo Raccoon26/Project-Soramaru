@@ -1,0 +1,21 @@
+{
+  "name": "project-soramaru",
+  "private": true,
+  "type": "module",
+  "workspaces": ["services/api", "packages/shared"],
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "dev:api": "npm run dev --workspace @soramaru/api",
+    "build:api": "npm run build --workspace @soramaru/api",
+    "lint": "eslint . && tsc --noEmit",
+    "test": "node --test tests/*.test.mjs services/api/test/*.test.mjs",
+    "check:repo": "node tools/check-repo.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.12.4",
+    "eslint": "10.15.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.74.0"
+  }
+}
