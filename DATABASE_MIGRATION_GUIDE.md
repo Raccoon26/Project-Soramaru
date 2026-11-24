@@ -1,0 +1,14 @@
+# D1 마이그레이션
+
+`database/migrations`의 순서를 파일명 네 자리 버전으로 검사한다. 하나의 마이그레이션은 `-- statement` 줄로 나뉜 SQL 문으로 구성한다. 트리거 내부의 세미콜론은 구분자로 사용하지 않는다. 버전·파일명·파일 SHA-256·적용 시간을 `schema_migrations`에 남긴다. 줄바꿈은 플랫폼 간 LF로 정규화한다. 이미 적용된 이름이나 체크섬이 달라지면 중단한다.
+
+동일 버전의 DDL과 기록은 실제 로컬 D1의 batch로 함께 적용한다. 실패한 버전은 전체 batch가 롤백되고 앞의 유효한 버전은 유지된다. 동시 적용 때 DB가 승자를 정하고 다른 스레드는 동일 체크섬이 커밋됐는지 확인한다. 새 빈 DB, v1에서 v4 업그레이드, 중복·순서·체크섬 검증과 중간 실패 후 재시도 시험은 `services/api/test/backend.test.mjs`에서 재현한다. [D1 batch](https://developers.cloudflare.com/d1/worker-api/d1-database/) · [D1 외래 키](https://developers.cloudflare.com/d1/sql-api/foreign-keys/)
+
+| 명령 | 동작 |
+|---|---|
+| `npm run db:migrate` | Local D1을 최신으로 올린다. |
+| `npm run db:seed` | 마이그레이션 후 합성 회원·프로필을 한 번 생성한다. |
+| `npm run db:reset -- test` | Vite를 멈춘 뒤 Test 디렉터리를 인접한 이전 디렉터리로 이동하고 새 DB를 준비한다. |
+| `npm run db:reset` | Local D1과 R2의 로컬 경로를 보존용 이름으로 이동한 뒤 초기화한다. |
+
+운영 데이터는 마이그레이션 코드가 연결할 수 없다. 스키마 변경은 추가→호환 읽기 및 백필→검증→이전 구조 제거 순으로 계획한다. 다음 DEV는 새 번호의 마이그레이션만 추가하고 이전 버전 DB, 버전 충돌, 삭제 처리, 쿼리 플랜을 재검증한다. [테이블 계획](DATABASE_DESIGN.md) · [백업·복구](BACKUP_RESTORE_GUIDE.md)

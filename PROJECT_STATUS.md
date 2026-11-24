@@ -24,7 +24,7 @@ DEV-01 **COMPLETE**. DEV-00 최종 main 위에서 토큰·공통 컴포넌트·�
 
 ## DEV-02 모바일 내비게이션
 
-DEV-01 최종 main에서 `dev/dev-02-navigation`으로 진행했다.
+DEV-02 **COMPLETE**. [PR #4](https://github.com/Raccoon26/Project-Soramaru/pull/4)를 병합한 최종 main은 `87bbf0c`이며 [CI가 통과했다](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45416715923).
 
 | 영역 | 결과 |
 |---|---|
@@ -34,4 +34,18 @@ DEV-01 최종 main에서 `dev/dev-02-navigation`으로 진행했다.
 | 자료·비용 | 원본 54개는 로컬에서 보호한다. 실제 운영 인프라·도메인·자동 과금 설정을 생성하지 않았으며 추가 서버 운영비는 0엔이다. |
 | 인수인계 | [라우트·복원 계약](NAVIGATION_GUIDE.md), [DEV-02 PR 및 검사](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-02-navigation), [main CI](https://github.com/Raccoon26/Project-Soramaru/actions/workflows/ci.yml?query=branch%3Amain). |
 
-실제 iOS 빌드·제스처, VoiceOver·TalkBack, 실제 기기 프레임 시간·메모리·배터리는 [출시 점검](RELEASE_CHECKLIST.md)에 둔다. DEV-03의 Worker·D1·비용 차단 구현은 별도 단계다.
+실제 iOS 빌드·제스처, VoiceOver·TalkBack, 실제 기기 프레임 시간·메모리·배터리는 [출시 점검](RELEASE_CHECKLIST.md)에 둔다.
+
+## DEV-03 서버 기반
+
+DEV-02 **COMPLETE**의 [PR #4 병합](https://github.com/Raccoon26/Project-Soramaru/pull/4)과 `main` 커밋 `87bbf0c`에서 시작했다.
+
+| 영역 | 결과 |
+|---|---|
+| 실행 환경 | Vite/workerd Local 및 독립 Miniflare Test에서 D1과 비공개·격리 R2를 사용한다. Staging·Production은 비활성 템플릿이다. |
+| 데이터 | SQL 4개와 35개 테이블(마이그레이션 장부 포함), 기존 요구사항에서 후속으로 계획한 20개 테이블. 버전·SHA 검증과 테스트 복원. |
+| 비용·보안 | 공유 원자적 비용 승인, 12개 플래그와 필수 예산 여유, D1 레이트, 직접 미디어 지표 신선도 검사, 파일 예약·대사·작업 임대. |
+| 모바일 | 공통 API 클라이언트와 일본어 상태 안내. 개발용 설정을 지정한 경우 사용자가 직접 연결을 확인한다. |
+| 검증·인수 | [테스트 보고](TEST_REPORT.md) · [서버 안내](BACKEND_GUIDE.md) · [DEV-03 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-03-backend-infrastructure) · [main CI](https://github.com/Raccoon26/Project-Soramaru/actions/workflows/ci.yml?query=branch%3Amain) |
+
+운영 리소스 생성과 배포 없이 추가 서버 비용 0엔을 유지했다. 운영 인증·실제 미디어·푸시·계정 삭제 처리, Cloudflare 운영 CPU와 청구량, iOS·Android 실기기 확인은 후속 단계에 둔다.

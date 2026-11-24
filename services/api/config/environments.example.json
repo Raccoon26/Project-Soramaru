@@ -1,0 +1,23 @@
+
+{
+  "local": {"enabled": true, "remoteBindings": false, "bindingNamespace": "local"},
+  "test": {"enabled": true, "remoteBindings": false, "bindingNamespace": "test"},
+  "staging": {
+    "enabled": false,
+    "db": "<separate-d1-binding>",
+    "privateMedia": "<separate-private-bucket>",
+    "quarantine": "<separate-quarantine-bucket>",
+    "firebaseProject": "<separate-approved-project>",
+    "secretReferences": ["SESSION_KEY", "CURSOR_KEY", "R2_SIGNING_KEY"],
+    "cron": "*/15 * * * *"
+  },
+  "production": {
+    "enabled": false,
+    "db": "<separate-d1-binding>",
+    "privateMedia": "<separate-private-bucket>",
+    "quarantine": "<separate-quarantine-bucket>",
+    "firebaseProject": "<separate-approved-project>",
+    "secretReferences": ["SESSION_KEY", "CURSOR_KEY", "R2_SIGNING_KEY"],
+    "cron": "*/15 * * * *"
+  }
+}

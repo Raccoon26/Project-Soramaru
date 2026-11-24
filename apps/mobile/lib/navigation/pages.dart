@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../network/api_notice.dart';
 import '../preview/home.dart'
     show AdaptiveTiles, FeedPreview, SectionTitle, sampleFeedPosts;
 import '../preview/pages.dart' show ComposePreview, PlayerPreview, StateCatalog;
@@ -442,6 +443,7 @@ class NavigationPage extends StatelessWidget {
         return _list([const Text('ブロック中のユーザーはいません。')]);
       case Screen.more:
         return _list([
+          const DevApiPanel(),
           for (final page in [
             Screen.notificationSettings,
             Screen.settings,
