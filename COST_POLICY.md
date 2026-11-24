@@ -9,7 +9,7 @@
 | R2 Standard | 계정 기준 10GB-month, Class A 1M/월, Class B 10M/월. 초과 $0.015/GB-month, A $4.50/M, B $0.36/M. 직접 인터넷 전송은 무료. 공식 과금 단위는 올림. 일별 피크 평균으로 GB-month 계산. |
 | Firebase Auth | Spark(결제 수단 없이 유지), 이메일+비밀번호. 주소 확인 1,000/일, 변경 1,000/일, 비밀번호 재설정 150/일, 가입 100/IP/시간. 이메일 링크 로그인은 5/일, SMS 전송은 Blaze 전용. Identity Platform Spark의 Tier 1 3,000 DAU 한도와 혼동하지 않으며 DEV-04에서 실제 프로젝트 모드와 한도를 확인한다. |
 | FCM/APNs | FCM 자체 무료. HTTP v1 발송에는 프로젝트 쿼터와 단말 한도가 적용된다. FCM 기본 분당 600,000 메시지의 기준도 콘솔에서 확인하고 429 Retry-After와 지수 백오프·지터 사용. APNs 배포 자격·스토어 등록 비용은 별도. |
-| GitHub Actions | GitHub Free 비공개 저장소의 포함 compute usage는 월 $12 상당, 2-core Linux $0.006/분 기준 약 2,000분. 아티팩트 500MB, 저장소 캐시 10GB. 계정/플랜 명세와 예산 소진 시 차단 설정을 확인하며 추가 사용 분을 위한 결제 설정은 변경 금지. |
+| GitHub Actions | Public 저장소의 표준 GitHub 호스티드 러너는 무료. GitHub Free 비공개 저장소의 비교 기준은 월 $12 상당이며 2-core Linux $0.006/분 기준 약 2,000분. CI에서는 표준 러너를 사용하고 추가 사용을 위한 결제 설정 변경을 금지한다. |
 
 [Workers 요금·한도](https://developers.cloudflare.com/workers/platform/pricing/) · [Workers 실행 한도](https://developers.cloudflare.com/workers/platform/limits/) · [D1 요금](https://developers.cloudflare.com/d1/platform/pricing/) · [D1 용량](https://developers.cloudflare.com/d1/platform/limits/) · [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/) · [R2 요금](https://developers.cloudflare.com/r2/pricing/) · [R2 체크아웃](https://developers.cloudflare.com/r2/get-started/) · [Firebase 요금](https://firebase.google.com/pricing) · [인증 사용량](https://firebase.google.com/docs/auth/limits) · [FCM 쿼터](https://firebase.google.com/docs/cloud-messaging/throttling-and-quotas) · [GitHub Actions 청구](https://docs.github.com/en/billing/concepts/product-billing/github-actions)
 
@@ -26,7 +26,7 @@ N은 월간 활성 회원(MAU). 일반일 DAU=0.3N, API=1,000+20×DAU, D1 읽기
 
 5,000명 피크에서 Workers 100k·D1 쓰기 100k를 넘는다. R2 저장 15GB-month 초과분 5GB-month는 $0.075 가정이다. 실제 서비스가 표의 비제한 흐름을 그대로 제공할 수 있는 규모라는 뜻은 아니다. 제안하는 운영 모드에서는 상한 전에 업로드나 신규 가입을 제한한다. 별도 시나리오에서 R2 Class A 1,000,001회 → 과금 단위 올림으로 초과 $4.50(약 720엔), Class B 10,000,001회 → 초과 $0.36(약 58엔). 작업 용량/가입 급증, 공급자 측 집계 지연, 모니터링 불능, 무료 한도 계정 공유, 콘텐츠 누적을 고려하면 0엔이나 300엔 미만을 완전히 보장할 수 없다.
 
-설치당 월 4건 API 세션 갱신/기기 관리 요청과 FCM 월 16개 공지 및 사용자 활성일별 알림 2개, 기기 배수 1.2를 기본 API 예산 범위에서 잡는다. 예시 FCM 월량은 100~5,000에서 4,080 / 20,400 / 40,800 / 204,000 메시지다. FCM 분당 1,000건 앱 상한, 인증 이메일 정상 1% 가입/일과 10배 피크면 5,000명에서 인증 이메일 약 50/500건. 이메일 재발급은 TTL/재시도 제한으로 별도 계측한다. 워크플로 실행 20회/월과 실행당 전체 job 상한 25분을 가정하면 최대 500 Linux 분(기준 $3 상당)을 소비한다. 캐시 공유/아티팩트 업로드/PR 미리보기 배포는 DEV-00에서 사용하지 않는다.
+설치당 월 4건 API 세션 갱신/기기 관리 요청과 FCM 월 16개 공지 및 사용자 활성일별 알림 2개, 기기 배수 1.2를 기본 API 예산 범위에서 잡는다. 예시 FCM 월량은 100~5,000에서 4,080 / 20,400 / 40,800 / 204,000 메시지다. FCM 분당 1,000건 앱 상한, 인증 이메일 정상 1% 가입/일과 10배 피크면 5,000명에서 인증 이메일 약 50/500건. 이메일 재발급은 TTL/재시도 제한으로 별도 계측한다. 워크플로 실행 20회/월과 실행당 전체 job 상한 25분을 가정하면 최대 500 Linux 분이다. 현재 Public 저장소의 표준 러너는 0엔이며 비공개 전환 시 비교 사용량은 $3 상당이다. 캐시 공유/아티팩트 업로드/PR 미리보기 배포는 DEV-00에서 사용하지 않는다.
 
 ## 제한과 모니터링
 
