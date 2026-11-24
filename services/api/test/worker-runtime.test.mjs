@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import { createServer } from 'vite';
 
 test('local Workers runtime serves the liveness endpoint', { timeout: 30000 }, async () => {

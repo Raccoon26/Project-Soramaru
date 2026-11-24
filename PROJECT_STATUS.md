@@ -8,7 +8,7 @@
 | API | TypeScript Workers 로컬 상태 경로, 공용 타입, 단위 및 실제 workerd 스모크 테스트, 빌드. |
 | 참조 | 스크린샷 53장·영상 1개 분석, 원본 54개 SHA-256 재대조. 참고 자료와 파생물은 로컬 제외. |
 | 구조·정책 | DEV-00~17 의존성, 125개 요구 ID, 화면·검증·권리·상태 추적, 비용/보안/운영 문서. |
-| GitHub | 기존 Private `main`의 전용 브랜치 `dev/dev-00-project-bootstrap`. PR의 Checks와 리뷰를 원격 기준으로 사용한다. DEV-00 시점 저장소 설정은 자동 병합 비활성이다. main은 API에서 protected=false로 확인했다. 이 Private 저장소의 세부 보호/rules 조회는 GitHub 플랜 조건으로 제한된다. 저장소 설정이나 플랜을 변경하지 않았다. |
+| GitHub | 기존 Private `main`의 전용 브랜치 `dev/dev-00-project-bootstrap`. [PR #1](https://github.com/Raccoon26/Project-Soramaru/pull/1)의 Checks와 리뷰를 원격 기준으로 사용한다. DEV-00 시점 저장소 설정은 자동 병합 비활성이다. main은 API에서 protected=false로 확인했다. 이 Private 저장소의 세부 보호/rules 조회는 GitHub 플랜 조건으로 제한된다. 저장소 설정이나 플랜을 변경하지 않았다. |
 
 ## 잔여 검증과 보류
 
