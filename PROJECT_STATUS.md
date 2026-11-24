@@ -1,19 +1,19 @@
 # 프로젝트 상태
 
-2026-11-24(JST) DEV-00의 로컬 구현·참조 분석·문서 검증을 마쳤다. 최종 종료 판정에는 GitHub PR의 실제 Checks와 리뷰 결과를 적용한다. DEV-01의 독자 디자인 토큰 및 합성 화면 작업은 시작할 수 있다.
+**2026-11-24(JST) · DEV-00 COMPLETE.** PR #1을 `main`에 병합했고 로컬 `main`을 갱신했다. DEV-01은 사용자 요청에 따라 미착수 상태다.
 
-| 영역 | 현재 근거 |
+| 영역 | 결과 |
 |---|---|
-| Flutter | 일본어 최소 프리뷰, Android·iOS 프로젝트. Windows에서 번들 및 Android 디버그 ARM64 APK 생성, 위젯 테스트와 분석 통과. |
-| API | TypeScript Workers 로컬 상태 경로, 공용 타입, 단위 및 실제 workerd 스모크 테스트, 빌드. |
-| 참조 | 스크린샷 53장·영상 1개 분석, 원본 54개 SHA-256 재대조. 참고 자료와 파생물은 로컬 제외. |
-| 구조·정책 | DEV-00~17 의존성, 125개 요구 ID, 화면·검증·권리·상태 추적, 비용/보안/운영 문서. |
-| GitHub | 기존 Private `main`의 전용 브랜치 `dev/dev-00-project-bootstrap`. [PR #1](https://github.com/Raccoon26/Project-Soramaru/pull/1)의 Checks와 리뷰를 원격 기준으로 사용한다. DEV-00 시점 저장소 설정은 자동 병합 비활성이다. main은 API에서 protected=false로 확인했다. 이 Private 저장소의 세부 보호/rules 조회는 GitHub 플랜 조건으로 제한된다. 저장소 설정이나 플랜을 변경하지 않았다. |
+| Flutter | 일본어 최소 프리뷰, Android·iOS 프로젝트. Windows에서 Dart 포맷, 분석, 위젯 테스트 1건, ARM64 디버그 APK 빌드와 서명을 재확인했다. |
+| API | TypeScript Workers 로컬 상태 경로, 공용 타입, Lint·타입 검사·번들 및 workerd 스모크를 포함한 테스트 3건 재통과. |
+| 참조 | 스크린샷 53장과 영상 1개 분석. 원본 54건의 SHA-256이 최초 기록과 일치한다. |
+| 공개 이력 감사 | 병합 전 원격이 광고한 브랜치·태그·PR 참조에서 도달하는 4개 커밋(임시 PR 병합 커밋 포함), 104개 고유 Git blob을 검사했다. 개인정보 값·인증 정보·보호된 참조 자료가 탐지되지 않았으며 바이너리는 Flutter 기본 이미지와 일치했다. |
+| 구조·정책 | DEV-00~17 의존성, 125개 요구사항 ID와 필수 문서 19개. |
+| GitHub | 사용자가 소스 저장소를 Public으로 전환하고 Allow auto-merge를 활성화했다. [PR #1](https://github.com/Raccoon26/Project-Soramaru/pull/1)의 검증 대상은 `57ffe10`, `main` 병합 커밋은 `0f5777b`다. [CI 두 작업](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45394581354)이 모두 통과했고 병합 시점에 필수 리뷰나 활성 브랜치 보호 규칙은 없었다. |
 
-## 잔여 검증과 보류
+## 남은 검증과 승인
 
-- Windows에서 iOS 빌드/실기기 실행 미검증. Mac/Xcode에서 시뮬레이터 빌드, unsigned 기기 빌드, 실제 설치·서명부터 확인한다. APNs·오디오·백그라운드·스토어는 구현 이후 [출시 체크](RELEASE_CHECKLIST.md)를 적용한다.
-- Android APK는 디버그 검증이다. 실제 기기의 성능·배터리·릴리스 서명은 DEV-16/17에 포함한다. 기기 입력과 네트워크 부하 데이터는 DEV-00에서 수집하지 않았다.
-- 정식 명칭·초상·콘텐츠 사용 허락과 실제 권한 인수는 [권리 상태](RIGHTS_STATUS.md)에 적힌 대기 항목이다.
-- R2는 무료 제공량과 별도로 과금 가능성이 있다. 운영 가입과 계정 한도·청구 조건은 운영 승인 전 확인한다. 운영 클라우드 리소스, 도메인, 배포 및 유료 계약은 이 단계에서 진행하지 않았다.
-- GitHub Actions는 기존 비공개 계정의 포함량을 사용한다. 계정 소유자 청구 화면의 잔여 크레딧과 예산 소진 차단을 별도로 확인한다. CI/CD에 결제 또는 배포 권한을 주지 않았다.
+- Windows에서 iOS 빌드와 실기기 실행은 미검증이다. Mac/Xcode 시뮬레이터·무서명 빌드·실기기 설치와 이후 APNs·음성·백그라운드 동작은 [출시 점검](RELEASE_CHECKLIST.md)을 따른다.
+- Android 실제 기기의 성능·배터리 및 릴리스 서명은 DEV-16/17에서 확인한다.
+- 정식 명칭·초상·콘텐츠의 사용 허락과 실제 운영 계정 인수는 [권리 상태](RIGHTS_STATUS.md)의 대기 항목이다. `references/`와 로컬 파생물은 계속 Git에서 제외한다.
+- DEV-00 운영 리소스, 도메인, 유료 계약, 서비스 배포는 생성된 내역이 없다. R2 운영 활성화는 청구 조건 확인과 승인 후 결정한다. Public GitHub Actions는 표준 호스티드 러너를 사용하며 워크플로에 배포 권한이나 아티팩트 업로드 단계가 없다.

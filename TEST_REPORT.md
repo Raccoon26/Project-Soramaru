@@ -20,3 +20,10 @@
 | 기기 성능·배터리 | 미검증 | 앱 프리뷰의 기본 분석/빌드만 검증. 기기 및 장시간 작업은 DEV-16/17에서 측정. |
 
 윈도우의 프로젝트 도구·캐시·결과는 E:에 배치했다. 호스트에 설치돼 있던 Git·Node.js·Python·JDK는 실행에 사용했다. 설치 과정에서 Flutter의 최신 Material API로 갱신했으며 `cf build`의 워크스페이스 감지 문제는 같은 Cloudflare 플러그인을 쓰는 Vite 직접 빌드로 해결했다. 운영 계정·인증·미디어·푸시·배포는 이 테스트 범위 밖이다.
+
+## 2026-11-24 공개 전환·PR #1 병합 재검증
+
+- PR 헤드 `57ffe10`에서 `npm run check:repo`, `npm run lint`, `npm test`(3건), `npm run build:api`, actionlint, `npm audit --audit-level=moderate`를 통과했다. npm audit 보고는 0건이다.
+- Flutter 잠금 파일, 포맷, 분석, 일문 위젯 테스트 1건, ARM64 디버그 빌드, APK 서명을 Windows에서 재검증했다.
+- 공개 브랜치·태그·PR Git 참조에서 도달하는 4개 커밋, 고유 blob 104개와 원본 SHA-256 54건을 검사했다. Gitleaks와 개인정보 패턴 점검에서 미해결 항목은 0건이다. 19개 고유 바이너리 blob은 Flutter SDK 기본 이미지와 일치했다. GitHub Actions 아티팩트와 GitHub 릴리스는 각각 0건이었다.
+- 두 원격 CI 작업은 [PR #1 검사](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45394581354)에서 성공했다. 활성 `main` 적용 규칙 및 레거시 보호는 없었다. 검증한 헤드 SHA를 지정해 병합했고 `0f5777b`가 로컬과 원격 `main`에 포함되었음을 확인했다.
