@@ -56,6 +56,8 @@ const sdkImages = /^apps\/mobile\/(android\/app\/src\/main\/res\/mipmap-[a-z]+\/
 const syntheticGoldens = new Set([
   'apps/mobile/test/goldens/category-and-empty.png',
   'apps/mobile/test/goldens/fan-feed.png',
+  'apps/mobile/test/goldens/linux/category-and-empty.png',
+  'apps/mobile/test/goldens/linux/fan-feed.png',
 ]);
 for (const path of paths) {
   assert.doesNotMatch(path, /^(references|\.local)\/|\.(pem|p12|p8|jks|keystore|sqlite3?|mobileprovision)$/i,

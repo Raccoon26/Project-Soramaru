@@ -10,7 +10,11 @@ import 'package:material_ui/material_ui.dart';
 import 'preview_layout_test.dart' show previewScreens;
 import 'support.dart';
 
+String _goldenPath(String name) =>
+    Platform.isLinux ? 'goldens/linux/$name.png' : 'goldens/$name.png';
+
 void main() {
+  final supportsGolden = Platform.isWindows || Platform.isLinux;
   setUpAll(loadPreviewFont);
 
   testWidgets('category and empty state golden', (tester) async {
@@ -36,18 +40,18 @@ void main() {
     );
     await expectLater(
       find.byKey(frameKey),
-      matchesGoldenFile('goldens/category-and-empty.png'),
+      matchesGoldenFile(_goldenPath('category-and-empty')),
     );
-  });
+  }, skip: !supportsGolden);
 
   testWidgets('fan feed screen golden', (tester) async {
     configureView(tester, const Size(390, 820));
     await showPreview(tester);
     await expectLater(
       find.byKey(frameKey),
-      matchesGoldenFile('goldens/fan-feed.png'),
+      matchesGoldenFile(_goldenPath('fan-feed')),
     );
-  });
+  }, skip: !supportsGolden);
 
   if (const bool.fromEnvironment('CAPTURE_DEV01')) {
     testWidgets('export the ten synthetic preview screens locally', (

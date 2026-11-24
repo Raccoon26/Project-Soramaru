@@ -61,4 +61,4 @@ APK는 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`에 생성됩니
 
 디버그 실행에서는 다섯 하단 메뉴와 대표 화면을 확인할 수 있습니다. `その他 → コンポーネントと画面状態`에서 공유 UI와 상태 안내를 확인합니다. 출시 빌드에서는 `DEV_PREVIEW`가 기본적으로 꺼집니다. 사진·음성 화면은 로컬 합성 콘텐츠를 사용합니다.
 
-앱 경로에서 `flutter test`로 크기·글꼴 확대·Golden 회귀를 실행합니다. `flutter test test/preview_golden_test.dart --dart-define=CAPTURE_DEV01=true`로 `.local/dev-01-preview/`에 대표 화면 PNG를 생성합니다. Git에 포함되는 두 Golden은 화면 회귀 검증용 합성 결과입니다. [디자인 시스템](DESIGN_SYSTEM.md) · [검증 기록](TEST_REPORT.md)
+앱 경로에서 `flutter test`로 크기·글꼴 확대·Golden 회귀를 실행합니다. `flutter test test/preview_golden_test.dart --dart-define=CAPTURE_DEV01=true`로 `.local/dev-01-preview/`에 대표 화면 PNG를 생성합니다. 두 Golden 검사는 Windows와 Linux용 합성 기준 이미지를 각각 사용합니다. [디자인 시스템](DESIGN_SYSTEM.md) · [검증 기록](TEST_REPORT.md)
