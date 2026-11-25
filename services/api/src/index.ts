@@ -10,8 +10,11 @@ import type { TrustedNetwork } from './rate.ts';
 import { failure, HttpError, jsonResponse, validateUrl } from './http.ts';
 import { enqueue, runJobs } from './jobs.ts';
 import { MediaStore } from './media.ts';
+import { handleMembership,membershipTarget,ReadReservations } from './membership-api.ts';
+import type { MembershipDependencies } from './membership-api.ts';
+import { observeDatabase } from './membership-metrics.ts';
 
-type Operation = 'health' | 'readiness' | 'session' | 'unknown';
+type Operation = 'health' | 'readiness' | 'session' | 'membership' | 'unknown';
 interface Event {
   requestId: string;
   operation: Operation;
@@ -27,6 +30,7 @@ interface Dependencies {
   log: (event: Event) => void;
   network: TrustedNetwork;
   burst: EdgeBurst;
+  membership?: MembershipDependencies;
 }
 
 function aggregate(meta: QueryMeta[], field: 'rows_read' | 'rows_written') {
@@ -34,10 +38,12 @@ function aggregate(meta: QueryMeta[], field: 'rows_read' | 'rows_written') {
 }
 
 export function createApi(overrides: Partial<Dependencies> = {}) {
-  const { verify,clock,log,network,burst } = {
+  const { verify,clock,log,network,burst,membership } = {
     verify: denyUnconfigured,clock: Date.now,log: (event: Event) => console.info(JSON.stringify(event)),
     network: () => null,burst: new EdgeBurst(),...overrides,
   };
+
+  const readReservations=new ReadReservations();
 
   return function fetch(request: Request, binding?: Partial<Env>): Response | Promise<Response> {
     const id = crypto.randomUUID();
@@ -55,6 +61,30 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
       url = validateUrl(request.url);
     } catch {
       return send(failure(new HttpError(400,'invalid_request'),id));
+    }
+    const target=membership?membershipTarget(url.pathname):null;
+    if (target&&membership) {
+      operation='membership';
+      if (!target.methods.split(', ').includes(request.method)) {
+        return send(failure(new HttpError(405,'method_not_allowed'),id,target.methods));
+      }
+      if (url.search||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
+        return send(failure(new HttpError(400,'invalid_request'),id));
+      }
+      const now=clock();
+      if (!burst.allow(now)) return send(failure(new HttpError(429,'rate_limited',1),id));
+      return (async()=>{
+        try {
+          const env=checkEnvironment(binding);
+          const observed=observeDatabase(env.DB,value=>meta.push(value));
+          const result=await handleMembership(request,target,{...env,DB:observed},membership,now,readReservations,network()??'unattributed');
+          return send(result.status===204
+            ? new Response(null,{status:204,headers:{'Cache-Control':'no-store','X-Request-Id':id}})
+            : jsonResponse(result.data,id,result.status));
+        } catch (error) {
+          return send(failure(error instanceof HttpError?error:new HttpError(503,'unavailable',30),id));
+        }
+      })();
     }
     switch (url.pathname) {
       case '/v1/health': operation = 'health'; break;
@@ -120,6 +150,9 @@ export default {
     const admission = await budget.admit('essential',{ jobRuns:1,d1Reads:140,d1Writes:85,
       d1IndexWrites:40,r2A:12,r2B:10 },now);
     if (!admission.allowed) return;
+    // Keep revoked/session history for 30 days and prune at most 20 per tick.
+    await query(env.DB,`DELETE FROM member_sessions WHERE id IN (
+      SELECT id FROM member_sessions WHERE expires_at<? ORDER BY expires_at,id LIMIT 20)`,now-30*86400000).run();
     const eventTime = controller?.scheduledTime ?? now;
     const window = Math.floor((Number.isSafeInteger(eventTime) && eventTime >= 0 && eventTime <= now ? eventTime : now)/900_000);
     await enqueue(env.DB,'expire_uploads','expiry:' + window,{},now,{required:true}).run();

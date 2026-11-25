@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../membership/controller.dart';
+import '../membership/screens.dart';
 import '../network/api_notice.dart';
 import '../preview/home.dart'
     show AdaptiveTiles, FeedPreview, SectionTitle, sampleFeedPosts;
@@ -59,10 +61,14 @@ class NavigationPage extends StatelessWidget {
   Widget _content(BuildContext context) {
     final n = navigation;
     final id = resource;
+    final membership = n.realMembership;
     void open(Screen screen, [String? resource]) =>
         n.open<void>(Destination(screen, resource));
     switch (screen) {
       case Screen.feed:
+        if (membership != null) {
+          return _list([const StateNotice(ViewState.empty)]);
+        }
         return FeedPreview(
           restorable: n.restorationId != null,
           controller: n.scrollFor(CommunityTab.feed),
@@ -296,6 +302,33 @@ class NavigationPage extends StatelessWidget {
       case Screen.personal:
         return _list([const Text('この画面は個人向けお知らせの表示サンプルです。')]);
       case Screen.profile:
+        if (membership != null) {
+          return ListenableBuilder(
+            listenable: membership,
+            builder: (context, _) {
+              final profile = membership.profile;
+              if (profile == null) return const StateNotice(ViewState.loading);
+              final joined = DateTime.fromMillisecondsSinceEpoch(
+                profile['joinedAt'] as int,
+                isUtc: true,
+              );
+              final days = DateTime.now()
+                  .difference(joined)
+                  .inDays
+                  .clamp(0, 365000);
+              return _list([
+                const AvatarMark(size: 50),
+                Text(profile['nickname'] as String, style: TypeStyles.heading),
+                Text(profile['biography'] as String),
+                Text("会員番号　${profile['memberNumber']}"),
+                Text('入会日　${Ja.date(joined)}'),
+                Text('会員期間　$days日'),
+                _row(Screen.editProfile),
+                _row(Screen.devices),
+              ]);
+            },
+          );
+        }
         return _list([
           ValueListenableBuilder<String>(
             valueListenable: n.profileName,
@@ -330,6 +363,9 @@ class NavigationPage extends StatelessWidget {
             _row(page),
         ]);
       case Screen.editProfile:
+        if (membership != null) {
+          return _list([MemberEditor(membership, onSaved: n.back)]);
+        }
         return _ProfileEditor(navigation: n);
       case Screen.membership:
         return OrientationBuilder(
@@ -429,6 +465,14 @@ class NavigationPage extends StatelessWidget {
           ),
         ]);
       case Screen.devices:
+        if (membership != null) {
+          return _list([
+            DevicesPane(
+              membership,
+              open: (alias) => open(Screen.device, alias),
+            ),
+          ]);
+        }
         return _list([
           _row(
             Screen.device,
@@ -438,6 +482,9 @@ class NavigationPage extends StatelessWidget {
           ),
         ]);
       case Screen.device:
+        if (membership != null) {
+          return _list([DevicesPane(membership, open: (_) {}, alias: id)]);
+        }
         return _list([const Text('端末サンプルです。識別情報はありません。')]);
       case Screen.blocks:
         return _list([const Text('ブロック中のユーザーはいません。')]);
@@ -457,32 +504,44 @@ class NavigationPage extends StatelessWidget {
             Screen.catalog,
           ])
             _row(page),
-          Consumer(
-            builder: (context, ref, _) {
-              final session = ref.watch(demoSessionProvider);
-              return Column(
-                children: [
-                  if (session.role == MemberRole.artist && session.signedIn)
-                    for (final page in [
-                      Screen.artistPost,
-                      Screen.artistSchedule,
-                      Screen.artistRewards,
-                    ])
-                      _row(page),
-                  if (session.signedIn)
-                    SettingsRow(
-                      Ja.demoSignOut,
-                      icon: Icons.logout,
-                      onTap: () => ref
-                          .read(demoSessionProvider.notifier)
-                          .change(SessionStatus.signedOut),
-                    )
-                  else
-                    _row(session.canSignIn ? Screen.login : Screen.restricted),
-                ],
-              );
-            },
-          ),
+          if (membership != null)
+            TextButton(
+              onPressed: () async {
+                if (await confirmSignOut(context, 'ログアウトしますか？')) {
+                  await membership.signOut();
+                }
+              },
+              child: const Text('ログアウト'),
+            ),
+          if (membership == null)
+            Consumer(
+              builder: (context, ref, _) {
+                final session = ref.watch(demoSessionProvider);
+                return Column(
+                  children: [
+                    if (session.role == MemberRole.artist && session.signedIn)
+                      for (final page in [
+                        Screen.artistPost,
+                        Screen.artistSchedule,
+                        Screen.artistRewards,
+                      ])
+                        _row(page),
+                    if (session.signedIn)
+                      SettingsRow(
+                        Ja.demoSignOut,
+                        icon: Icons.logout,
+                        onTap: () => ref
+                            .read(demoSessionProvider.notifier)
+                            .change(SessionStatus.signedOut),
+                      )
+                    else
+                      _row(
+                        session.canSignIn ? Screen.login : Screen.restricted,
+                      ),
+                  ],
+                );
+              },
+            ),
         ]);
       case Screen.notificationSettings:
         return const _LocalSetting('お知らせを表示する');
@@ -493,6 +552,14 @@ class NavigationPage extends StatelessWidget {
       case Screen.support:
         return _list([const Text('お問い合わせフォームは準備中です。送信はできません。')]);
       case Screen.terms || Screen.privacy:
+        if (membership != null) {
+          return _list([
+            PolicyCopy(
+              membership,
+              kind: screen == Screen.terms ? 'terms' : 'privacy',
+            ),
+          ]);
+        }
         return _list([const Text('開発用の仮画面です。正式な文書を公開する前の表示サンプルです。')]);
       case Screen.deleteAccount:
         return _list([const Text('アカウント削除の案内は準備中です。この画面からは削除できません。')]);
@@ -622,6 +689,15 @@ class BoundaryPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final account = ref.watch(membershipProvider);
+    if (account != null &&
+        (screen == Screen.login || screen == Screen.restricted)) {
+      return _ScreenFrame(
+        screen: screen,
+        navigation: navigation,
+        child: MembershipGate(account, onCancel: navigation.cancelSignIn),
+      );
+    }
     final session = ref.watch(demoSessionProvider);
     final text = switch (screen) {
       Screen.login || Screen.restricted => session.explanation,

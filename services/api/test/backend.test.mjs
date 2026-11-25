@@ -61,7 +61,7 @@ function addPost(db,id,author,at,state='approved',publishAt=at) {
 
 async function session(db,actor,n) {
   const key = await digest('fixture-'+n);
-  await query(db,'INSERT INTO member_sessions VALUES (?,?,?,?,?,NULL,?)',
+  await query(db,'INSERT INTO member_sessions(id,member_id,session_hash,created_at,expires_at,revoked_at,last_seen) VALUES (?,?,?,?,?,NULL,?)',
     actor.sessionId,actor.id,key,now,now+100_000,now).run();
   return {firebaseUid:'uid-demo-'+n,sessionDigest:key};
 }
@@ -69,9 +69,9 @@ async function session(db,actor,n) {
 test('blank installation, ordered idempotent snapshots and checksum drift on real D1', () =>
   withRuntime(async ({DB}) => {
     const all = await migrations();
-    assert.equal(await migrate(DB),4);
+    assert.equal(await migrate(DB),6);
     const before = await query(DB,'SELECT checksum,applied_at FROM schema_migrations ORDER BY version').all();
-    assert.equal(await migrate(DB),4);
+    assert.equal(await migrate(DB),6);
     assert.deepEqual((await query(DB,'SELECT checksum,applied_at FROM schema_migrations ORDER BY version').all()).results,before.results);
     await assert.rejects(migrate(DB,[all[1],all[0]]),/sequence/);
     await assert.rejects(migrate(DB,[{...all[0],checksum:'0'.repeat(64)},...all.slice(1)]),/diverged/);
@@ -462,7 +462,7 @@ test('encrypted backup restores a separate database, validates data and reapplie
       const restored = await captureRows(target);
       assert.deepEqual(restored.tables,original.tables);
       assert.deepEqual(schemaIdentity(restored.schema),schemaIdentity(original.schema));
-      assert.equal(await migrate(target),4);
+      assert.equal(await migrate(target),6);
       await assert.rejects(restore(target,sealed,key,{through:now,entries:[]}),/empty/);
     },false);
     await withRuntime(async ({DB:target})=>{

@@ -51,3 +51,7 @@ Cloudflare Vite 플러그인의 프로그램 구성은 현재 RC이며 잠금 �
 Cloudflare Vite와 고정된 Miniflare/workerd를 공유한다. Local/Test 바인딩 이름과 저장 경로를 구분하고 원격 바인딩을 막았다. 공개 liveness와 바인딩/스키마 준비 상태를 분리한다. Cloudflare 측의 운영 런타임은 향후 Workers와 Cron, D1/R2 및 승인된 Firebase에 의존한다. 개발 PC는 배포 후 요청 처리의 의존성이 없다.
 
 D1이 선택 작업 예산, 기능 플래그, 예약 잔여량, 레이트와 작업 임대를 조정한다. 스토어와 D1은 개별 커밋 경계를 가지며 두 사본 용량을 예약한 상태에서 멱등 재시도 또는 대사로 수렴시킨다. MediaAccess의 직접 발급과 제한 중계는 소유권과 상태를 검증한다. 실제 파일 검역, 서명 자격 증명 및 공유 권한 저장소는 해당 단계에서 연결한다. [서버 안내](BACKEND_GUIDE.md) · [비용 제어](COST_CONTROL_GUIDE.md)
+
+## DEV-04 인증 경계
+
+Firebase의 신원·현재 revoked 기준, D1의 회원·정책·기기 세션·역할을 함께 적용한다. 모바일 Firebase 갱신·저장은 디버그 에뮬레이터 REST 및 OS 보안 저장소로 분리했다. 일반 배포 입력에는 로컬 인증 어댑터가 없고, 운영용 Web Crypto 검증은 실제 프로젝트 승인 후 연결한다. [인증 가이드](AUTHENTICATION_GUIDE.md)

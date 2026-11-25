@@ -58,3 +58,7 @@
 | reports, moderation_actions, support_tickets | 05/13/14. 신고 대상 상태와 처리 트랜잭션, 평가 권한·감사 및 지원 조회 인덱스 |
 
 실제 인덱스는 피드·작성자·콘텐츠 공개·댓글·미읽음·작업을 EXPLAIN과 로컬 D1 행량으로 시험했다. 커서는 기본 20·최대 50개, 시각+ID, 요청자 및 필터 HMAC, 15분 만료를 적용한다. 새로 들어온 상단 항목은 다음 새로고침에서 읽는다. 가시성 삭제·차단은 매 쿼리에서 다시 적용된다. [마이그레이션 가이드](DATABASE_MIGRATION_GUIDE.md)
+
+## DEV-04 스키마
+
+v5는 기존 세션 표에 별칭·OS·Firebase 인증 시각·절대 만료·갱신 시각, 프로필에 사진 참조·컬렉션 공개 범위·설정 완료 시각을 추가한다. `policy_acceptances`, `content_operator_grants`, `membership_audit`를 더해 전체 38개 테이블이다. v6은 기기 조회 인덱스와 공식/운영 역할의 부여·철회 감사 트리거를 추가한다. 기존 회원번호 장부와 전체 생년월일 미수집 정책을 유지한다. [마이그레이션](DATABASE_MIGRATION_GUIDE.md)

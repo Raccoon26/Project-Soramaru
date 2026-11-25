@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import 'membership/preview.dart';
 import 'navigation/navigation_app.dart';
 import 'preview/home.dart';
 import 'preview/pages.dart';
@@ -18,6 +19,8 @@ const _legacyPreview = bool.fromEnvironment('DEV_LEGACY_PREVIEW');
 void main() {
   if (kReleaseMode || !_enablePreview) {
     runApp(const BootstrapApp(preview: false));
+  } else if (kDebugMode && const bool.fromEnvironment('DEV_MEMBERSHIP')) {
+    runApp(const MembershipPreview());
   } else if (_legacyPreview) {
     runApp(const BootstrapApp());
   } else {

@@ -75,3 +75,22 @@
 기존 Miniflare v5가 v4 개별 저장 경로 옵션을 사용하지 않아 초기 Vite와 CLI가 서로 다른 DB를 읽었다. 공유 `v3` 경로를 사용하도록 수정하고 준비 검사를 CI에 추가했다. Node의 타입 제거 모드와 호환되는 TypeScript 문법으로 교정했다. Android 네트워크 XML 선언 앞 공백으로 디버그 패키징이 실패해 선언을 첫 줄로 옮겼다. 백업 복원에서 동일 장부를 서로 다른 SQL 공백으로 비교하던 문제를 공용 정의와 정규화로 수정했다. 파일 용량 검사는 회원별 집계 행을 써서 오래된 예약 전체를 읽지 않도록 조정했다.
 
 재현은 [서버 가이드](BACKEND_GUIDE.md)와 `npm run lint && npm test`, `npm run db:migrate && npm run smoke:api && npm run build:api`, 모바일의 `flutter test --no-pub`를 사용한다. [DEV-03 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-03-backend-infrastructure)
+
+## DEV-04 회원 인증과 세션
+
+| 검사 | 결과와 근거 |
+|---|---|
+| DEV-00~03 회귀 | 변경 전 Flutter 82건·API 26건을 재현했다. Windows 최종 기본 실행은 Flutter 99건(신규 17), API 33건(신규 7)이다. 기존 Golden, 5탭, 화면 경로 58개, 링크 9종을 유지했다. |
+| 실제 로컬 인증 | `npm run test:membership`가 공식 Firebase Auth Emulator와 workerd·D1에서 통과했다. 합성 이메일 가입·로그인·오류, OOB 발급·잘못된 코드·재사용, 동시 최초 가입, 정책·프로필 수정 충돌, 세션 갱신·기기 철회, 비밀번호 재설정 뒤 기존 세션 거부를 검증했다. Flutter Dart 게이트웨이도 같은 로컬 서비스를 호출해 가입에서 로그아웃까지 통과했다. |
+| 인증 경계 | 로컬 RSA 서명, 서명 오류, unsigned, kid/키 회전, 프로젝트·시간·이메일 상태, 공급자 disabled/validSince, 회원 및 기기 소유권, 공식 권한과 관리자 추가 인증을 시험했다. 기본 빌드 진입에는 Emulator 바인딩이 없다. |
+| D1/복구 | 실제 D1에서 빈 설치, v4 보존 업그레이드, 반복 실행·체크섬 및 실패 복구를 검증했다. 6개 마이그레이션과 장부 포함 38개 테이블이다. 합성 백업의 별도 복원·삭제 일지 재적용 시험도 통과했다. |
+| 비용 | 동일 로컬 조회 12회의 D1 읽기 행은 1,276→391, 쓰기 행은 112→31이다. 쿼리별 집계 인덱스 변경 추정은 48→12다. 세션 최근 이용 기록은 조회 중 쓰지 않는다. 공유 승인과 철회는 D1을 통한다. 70·80·90·95·98% 가드 및 12개 기능 플래그를 유지했다. |
+| 일본어 UI | 가입 레이아웃을 320·390·430·768dp × 100·130·200%에서 검사했다. 이메일 키보드·자동완성·인셋, 로그인 후 딥링크 복귀, 서버 재시도·로컬 자격 복원 및 해제를 확인했다. 합성 화면 PNG 5개는 무시된 `.local/dev-04-preview/`에 둔다. |
+| 앱 빌드와 APK | Windows Flutter 번들과 ARM64 대상 디버그 APK를 생성했다. APK는 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`이며 `apksigner verify`에서 v2 서명을 확인했다. 개발 플래그를 켜고 만든 ARM64 릴리스의 매니페스트는 평문·백업을 차단한다. 디버그에 있는 개발 인증·딥링크·코드·설치 표지의 다섯 대표 문자열이 릴리스 AOT에 없음을 확인했다. |
+| 저장소·의존성 | TypeScript·ESLint·API 빌드, actionlint, 요구사항 125개와 문서 28개 검사 통과. 프로젝트 npm 잠금 파일은 취약점 보고 0건이며 Pub 호스팅 잠금 의존성 65개는 OSV 보고 0건이다. 별도 Firebase CLI 15.37.0의 npm 의존성 감사에는 중간 심각도 항목 14개가 있다. CLI는 테스트 및 loopback Auth 전용으로 두고 운영 패키지에는 포함하지 않는다. |
+| 공개 범위 | 원본 54개의 SHA-256이 로컬 기록과 일치했다. 공개 Git의 브랜치·태그·PR 이력 및 DEV-04 후보의 보호 미디어·개인정보·시크릿 패턴을 검사했다. 기존 CI 이미지 두 개는 저장소의 독자 생성 Linux Golden과 해시가 같다. |
+| 후속 확인 | Emulator의 OOB 저장소에서 코드의 시간 경과 만료를 재현할 수 없어 앱의 만료 응답 처리까지 확인했다. 실제 운영 프로젝트·이메일·Cloudflare CPU와 비용, iOS 설치, Android/iOS 실기기 보호 저장소와 접근성·배터리는 미검증이다. |
+
+테스트에서 Workerd가 거부하는 Fetch redirect 옵션을 수정했다. 일반 프로필 쓰기와 세션 철회를 같은 제한으로 계산하던 문제는 철회 전용 제한으로 해결했다. Flutter 통합 시험의 HTTP 모의 응답을 전용 루프백 연결로 분리해 실제 Firebase와 D1을 사용하도록 교정했다. 철회 이력이 많을 때 활성 기기가 목록에서 사라지던 경계 사례를 고쳐 현재 기기와 나머지 활성 기기를 먼저 표시한다.
+
+재현은 [에뮬레이터 가이드](FIREBASE_EMULATOR_GUIDE.md), [비용 통제](COST_CONTROL_GUIDE.md), [DEV-04 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-04-membership-auth)에서 확인한다.

@@ -53,11 +53,21 @@ class IoApiTransport implements ApiTransport {
   final HttpClient _client;
 
   @override
-  Future<ApiReply> get(Uri uri, {String? token}) async {
+  Future<ApiReply> get(Uri uri, {String? token}) =>
+      send(uri, 'GET', token: token);
+
+  Future<ApiReply> send(
+    Uri uri,
+    String method, {
+    String? token,
+    Map<String, String> headers = const {},
+    Map<String, Object?>? body,
+    String? form,
+  }) async {
     HttpClientRequest? request;
     var timedOut = false;
     Future<ApiReply> operation() async {
-      final outgoing = await _client.getUrl(uri);
+      final outgoing = await _client.openUrl(method, uri);
       request = outgoing;
       if (timedOut) {
         outgoing.abort();
@@ -66,6 +76,17 @@ class IoApiTransport implements ApiTransport {
       outgoing.followRedirects = false;
       outgoing.headers.set('accept', 'application/json');
       if (token != null) outgoing.headers.set('authorization', 'Bearer $token');
+      headers.forEach(outgoing.headers.set);
+      if (body != null) {
+        outgoing.headers.contentType = ContentType.json;
+        outgoing.write(jsonEncode(body));
+      } else if (form != null) {
+        outgoing.headers.contentType = ContentType(
+          'application',
+          'x-www-form-urlencoded',
+        );
+        outgoing.write(form);
+      }
       final response = await outgoing.close();
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response) {

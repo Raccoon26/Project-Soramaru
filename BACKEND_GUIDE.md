@@ -33,3 +33,7 @@ npm run dev:api
 ## 후속 연동 및 운영 인수
 
 DEV-04는 Firebase 검증기와 서버 세션 발급, DEV-05~08은 페이지/차단·권한과 D1 도메인 쓰기, DEV-06/09/11은 검역 판정·미디어 서명 및 재생, DEV-13은 outbox 수신·실제 알림과 삭제, DEV-14/15는 관리자 제어·공급자 지표·복구를 연결한다. 운영 활성화 전 저장소 권리 승인을 확인하고 Cloudflare·Firebase 환경/정책, R2 청구, 시크릿 수명, 지표 가시성, 복구 시험, Android/iOS 운영 연결을 별도 승인받는다. [비용 제어](COST_CONTROL_GUIDE.md) · [마이그레이션](DATABASE_MIGRATION_GUIDE.md) · [복구](BACKUP_RESTORE_GUIDE.md)
+
+## DEV-04 개발 서버
+
+`npm run db:migrate` 다음에 Firebase Auth Emulator를 별도 콘솔에서 실행하고 `npm run auth:worker`를 실행한다. 로컬 인증이 없는 기본 `dev:api`와 별도 진입이다. 에뮬레이터 인증 모드의 Worker 빌드는 거부한다. Windows·CI는 합성 데이터만 쓰며 운영 활성화에는 별도 승인이 필요하다. [실행 지침](FIREBASE_EMULATOR_GUIDE.md)

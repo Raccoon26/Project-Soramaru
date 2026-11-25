@@ -20,7 +20,10 @@
     "db:reset": "node tools/local-backend.mjs reset",
     "smoke:api": "node tools/smoke-backend.mjs",
     "db:backup": "node tools/local-backup.mjs backup",
-    "db:restore-test": "node tools/local-backup.mjs verify"
+    "db:restore-test": "node tools/local-backup.mjs verify",
+    "auth:emulator": "node tools/firebase-emulator.mjs start",
+    "auth:worker": "node tools/firebase-emulator.mjs worker",
+    "test:membership": "node tools/firebase-emulator.mjs test"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

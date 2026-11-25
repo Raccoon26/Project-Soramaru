@@ -36,3 +36,20 @@ DEV-02는 기존 Workers 상태 API와 공용 타입을 그대로 사용한다. 
 응답은 `no-store`, `nosniff`, 서버 생성 `X-Request-Id`를 쓴다. `{"error":{"code":"..."}}` 안의 기계 코드와 429/503의 `Retry-After`를 모바일에서 사용한다. JSON helper는 UTF-8 객체, 미압축 JSON MIME, 기본 16KiB 실제 스트림을 검증한다. 잘못된·중복 쿼리와 경로 인코딩 및 과대 요청을 거부한다. SQL·예외 원문 없이 상태·처리 시간·측정한 D1 메타 범위를 로그에 남긴다. 새 도메인 엔드포인트는 해당 권한·레이트·비용 우선순위 및 허용 요청 필드를 지정한다.
 
 멱등성 키는 회원+작업+키 및 정규화 요청 해시에 연결한다. 결과·도메인 쓰기·outbox 등록은 동일 D1 batch다. 입력이 달라지거나 24시간이 지난 키는 409로 다룬다. 키 보존/정리 이후의 중복 방지는 도메인 고유 키로 적용한다. 외부 전달자는 이벤트 ID를 키로 재시도를 견뎌야 한다. [서버 안내](BACKEND_GUIDE.md)
+
+## DEV-04 회원 API
+
+| 메서드와 경로 | 계약 |
+|---|---|
+| POST /v1/sessions | Firebase 토큰, 무작위 발급 키, 기기 별칭·OS로 세션 발급 |
+| GET /v1/me/session | 두 자격 증명으로 회원 단계·프로필·현재 세션 통합 조회 |
+| POST /v1/sessions/renew | 만료 임박 세션의 제한 갱신 |
+| GET /v1/sessions | 자기 기기 목록 |
+| GET, DELETE /v1/sessions/:id | 자기 기기 상세·철회 |
+| DELETE /v1/sessions | 재인증 뒤 전체 기기 철회 |
+| GET, PATCH /v1/me | 자기 프로필. PATCH는 quoted `If-Match` 버전 |
+| POST /v1/me/terms | 최신 정책 버전 및 세 문서의 멱등 동의 |
+| GET /v1/auth/policies | 버전과 일본어 개발 문서 |
+| POST /v1/auth/email | 메일 확인·재설정의 제한된 요청 |
+
+일반 보호 요청은 `Authorization: Bearer` Firebase ID 토큰과 `X-App-Session`을 모두 사용한다. `POST /v1/sessions`는 발급 전이므로 Firebase만 사용한다. DEV-03 테스트 주입용 단일 Bearer 계약은 이전 회귀를 위해 격리했다. [세션 관리](SESSION_MANAGEMENT_GUIDE.md)

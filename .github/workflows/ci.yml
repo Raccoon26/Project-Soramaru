@@ -32,6 +32,8 @@ jobs:
       - run: npm run check:repo
       - run: npm run lint
       - run: npm test
+      - run: npm install --prefix .local/sdk/firebase --ignore-scripts --no-audit --no-fund firebase-tools@15.37.0
+      - run: npm run test:membership
       - run: npm run db:migrate
       - run: npm run smoke:api
       - run: npm run build:api

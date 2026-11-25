@@ -49,3 +49,11 @@ DEV-02 **COMPLETE**의 [PR #4 병합](https://github.com/Raccoon26/Project-Soram
 | 검증·인수 | [테스트 보고](TEST_REPORT.md) · [서버 안내](BACKEND_GUIDE.md) · [DEV-03 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-03-backend-infrastructure) · [main CI](https://github.com/Raccoon26/Project-Soramaru/actions/workflows/ci.yml?query=branch%3Amain) |
 
 운영 리소스 생성과 배포 없이 추가 서버 비용 0엔을 유지했다. 운영 인증·실제 미디어·푸시·계정 삭제 처리, Cloudflare 운영 CPU와 청구량, iOS·Android 실기기 확인은 후속 단계에 둔다.
+
+## DEV-04 회원 인증
+
+DEV-03 **COMPLETE**는 [PR #5](https://github.com/Raccoon26/Project-Soramaru/pull/5)의 병합 커밋 `c188dd0`과 [최종 main CI](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45603491827)에서 확인한다.
+
+이메일·비밀번호, 이메일 확인·비밀번호 재설정, 최신 정책 동의, 프로필과 기기 세션을 실제 Firebase Auth Emulator·workerd·D1에 연결했다. 기존 v1~4 SQL을 유지하고 v5~6으로 확장했다. 운영용 서명 검증기는 로컬 RSA 키로 검증하며 현재 기본 Worker와 릴리스 앱의 보호 기능은 닫혀 있다. [인증 가이드](AUTHENTICATION_GUIDE.md) · [DEV-04 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-04-membership-auth)
+
+실제 운영 인증 이메일·Firebase 프로젝트·Cloudflare CPU와 청구량·iOS 빌드 및 실제 기기 보안 저장소는 후속 검증이다. 이번 서버 운영비 증분은 0엔이다.
