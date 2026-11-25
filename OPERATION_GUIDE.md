@@ -28,3 +28,7 @@ D1 Time Travel 즐겨찾기 지점 및 논리 내보내기(주간 암호화), �
 [서버 안내](BACKEND_GUIDE.md)에 Node/Vite 시작·종료와 준비 검사, [마이그레이션 가이드](DATABASE_MIGRATION_GUIDE.md)에 테스트 초기화·오류 복구가 있다. 준비 검사 실패 시 모드, 바인딩, E: 저장 경로, 마이그레이션 적용 버전을 확인한다. 동일 E: 상태 경로를 쓰는 CLI 작업과 Vite는 순서대로 실행한다.
 
 예산 경보 시 저장·요청·읽기·쓰기의 병목을 분리하고 먼저 비필수 작업을 제한한다. 공급자 관측이 중단되면 신규 직접 발급부터 차단된다. 임대 만료 후 이전 실행기의 커밋을 막으며 검역과 승인 버킷의 대사, 실패 예약 용량 해제, 이미 삭제된 정보의 회복 차단을 점검한다. [비용 제어](COST_CONTROL_GUIDE.md) · [백업·복구](BACKUP_RESTORE_GUIDE.md)
+
+## DEV-04 인증 운영
+
+회귀 검사는 [Firebase Emulator 가이드](FIREBASE_EMULATOR_GUIDE.md)의 전용 테스트 명령으로 실행한다. 인증 상태 점검과 비용 제한, 재설정 후 기기 만료, 지원·삭제 요청 인계는 [세션 가이드](SESSION_MANAGEMENT_GUIDE.md)와 [회원 수명](MEMBER_LIFECYCLE_GUIDE.md)을 따른다. 추적·운영 승인 전 이메일/세션 원문이 있는 개인 로그는 사용하지 않는다.

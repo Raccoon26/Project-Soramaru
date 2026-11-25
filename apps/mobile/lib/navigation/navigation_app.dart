@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../membership/controller.dart';
 import '../preview/pages.dart' show ComposeDraft;
 import '../ui/controls.dart';
 import '../ui/design.dart';
@@ -61,11 +62,14 @@ final navigationProvider = Provider<NavigationController>((ref) {
   final generation = ref.watch(
     demoSessionProvider.select((value) => value.generation),
   );
+  final member = ref.read(membershipProvider);
   final result = NavigationController(
     session: () => ref.read(demoSessionProvider),
     resources: ref.read(navigationResourcesProvider),
     now: ref.read(navigationClockProvider),
     generation: generation,
+    realMembership: member,
+
     initialExternalLink: generation == 0
         ? ref.read(initialExternalLinkProvider)
         : null,
@@ -89,9 +93,10 @@ class NavigationController {
     required this._now,
     required this.generation,
     String? initialExternalLink,
+    this.realMembership,
   }) {
     final initial = initialExternalLink == null
-        ? Screen.feed.pattern
+        ? (realMembership == null ? Screen.feed.pattern : Screen.login.pattern)
         : _externalLocation(initialExternalLink);
     router = GoRouter(
       navigatorKey: _rootKey,
@@ -135,8 +140,10 @@ class NavigationController {
 
   final int generation;
   // After any demo account boundary, old OS buckets are detached.
-  String? get restorationId =>
-      generation == 0 ? 'soramaru-navigation-demo' : null;
+  String? get restorationId => generation == 0 && realMembership == null
+      ? 'soramaru-navigation-demo'
+      : null;
+  final MembershipController? realMembership;
   final _rootKey = GlobalKey<NavigatorState>();
   late final GoRouter router;
   StatefulNavigationShell? _shell;
@@ -277,6 +284,11 @@ class NavigationController {
     if (screen.access == Access.artist && session.role != MemberRole.artist) {
       return Screen.restricted.pattern;
     }
+    if (screen == Screen.device && realMembership != null) {
+      return id != null && realMembership?.device(id) != null
+          ? null
+          : Screen.unavailable.pattern;
+    }
     if (screen.hasResource) {
       if (id == null || !resourceId.hasMatch(id)) {
         return Screen.invalidLink.pattern;
@@ -301,7 +313,8 @@ class NavigationController {
     final blocked = _blocked(destination.screen, destination.id);
     if (blocked == Screen.login.pattern ||
         (blocked == Screen.restricted.pattern &&
-            _session().status == SessionStatus.checking)) {
+            (realMembership != null ||
+                _session().status == SessionStatus.checking))) {
       _pending = PendingDestination(
         destination,
         generation,
@@ -394,6 +407,11 @@ class NavigationController {
       final controller = _scroll[tab];
       if (controller != null && controller.hasClients) controller.jumpTo(0);
     }
+  }
+
+  void cancelSignIn() {
+    _pending = null;
+    back();
   }
 
   void back<T>([T? value]) {

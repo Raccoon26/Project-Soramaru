@@ -9,10 +9,11 @@ import { digest } from '../services/api/src/platform.ts';
 
 const backendRoot = fileURLToPath(new URL('../.local/backend/', import.meta.url));
 
-export function simulator(environment = 'test', { persist = false } = {}) {
+export function simulator(environment = 'test', { persist = false,slot = null } = {}) {
   const mode = localEnvironment(environment);
   const names = bindingNames(mode);
-  const path = join(backendRoot, mode);
+  if (slot!==null&&(mode!=='test'||!/^[a-f0-9-]{36}$/.test(slot))) throw new Error('Invalid test slot');
+  const path=join(backendRoot,slot?'test-'+slot:mode);
   return new Miniflare(convertV4MiniflareOptions({
     name: 'soramaru-emulator',
     compatibilityDate,

@@ -75,3 +75,7 @@ DEV-01 캡처는 `flutter test test/preview_golden_test.dart --dart-define=CAPTU
 `npm run db:migrate` 뒤 `npm run smoke:api`로 실제 로컬 workerd가 D1 준비 상태에 도달하는지 검사합니다. `npm run dev:api`를 중지할 때는 Ctrl+C를 사용합니다. 데이터 초기화, 백업과 복원 절차는 각 안내를 참조합니다. [서버 안내](BACKEND_GUIDE.md) · [마이그레이션](DATABASE_MIGRATION_GUIDE.md) · [비용 제어](COST_CONTROL_GUIDE.md) · [백업과 복구](BACKUP_RESTORE_GUIDE.md)
 
 Android 에뮬레이터에서는 `flutter run --dart-define=DEV_API_ORIGIN=http://10.0.2.2:8787`로 `その他`의 개발용 연결 확인을 활성화할 수 있습니다. 실제 로컬 USB 기기는 프로젝트 외 규칙을 바꾸지 않고 필요한 개발 연결 경로를 준비한 뒤 접근합니다. 서버는 사용자가 연결 확인을 눌렀을 때만 호출됩니다.
+
+## DEV-04 개발용 회원 연결
+
+별도 터미널에서 `npm run auth:emulator`와 `npm run auth:worker`를 실행하고 Flutter에 `--dart-define=DEV_MEMBERSHIP=true`를 지정합니다. Emulator CLI 설치·D1 마이그레이션·테스트·종료 절차는 가이드를 참조합니다. [Firebase 개발 가이드](FIREBASE_EMULATOR_GUIDE.md) · [인증 가이드](AUTHENTICATION_GUIDE.md) · [세션 관리](SESSION_MANAGEMENT_GUIDE.md) · [회원 수명](MEMBER_LIFECYCLE_GUIDE.md)

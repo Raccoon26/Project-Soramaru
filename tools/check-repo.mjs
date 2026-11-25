@@ -16,6 +16,7 @@ const documents = [
   'TEST_REPORT.md', 'RELEASE_CHECKLIST.md', 'OPERATION_GUIDE.md', 'AGENTS.md',
   'NAVIGATION_GUIDE.md', 'BACKEND_GUIDE.md', 'DATABASE_MIGRATION_GUIDE.md',
   'COST_CONTROL_GUIDE.md', 'BACKUP_RESTORE_GUIDE.md',
+  'AUTHENTICATION_GUIDE.md', 'FIREBASE_EMULATOR_GUIDE.md', 'SESSION_MANAGEMENT_GUIDE.md', 'MEMBER_LIFECYCLE_GUIDE.md',
 ];
 const rows = (filename, pattern) =>
   read(filename).split(/\r?\n/).filter((line) => pattern.test(line))

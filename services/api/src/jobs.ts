@@ -4,7 +4,7 @@ import type { Database } from './platform.ts';
 import { auditStatement } from './writes.ts';
 
 export const jobKinds = ['publish_notice','birthday_card','anniversary_card','notifications','expire_uploads',
-  'reconcile_media','reconcile_usage','backup','deliver_outbox'] as const;
+  'reconcile_media','reconcile_usage','backup','deliver_outbox','member_deletion'] as const;
 export type JobKind = typeof jobKinds[number];
 interface Job {
   id: string;

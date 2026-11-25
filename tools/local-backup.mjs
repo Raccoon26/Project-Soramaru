@@ -14,7 +14,7 @@ const expectedTables = ['schema_migrations',
   'posts','comments','tags','post_tags','blocks','reactions','badge_catalog','badge_awards','applied_badges',
   'media_capacity','media_owner_capacity','media_reservations','media_objects','post_media','content_items',
   'usage_windows','feature_flags','rate_limits','scheduled_jobs','outbox','idempotency_keys','audit_events',
-  'notifications','notification_reads'];
+  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit'];
 const crypt = globalThis.crypto;
 const buffer = globalThis.Buffer;
 
@@ -91,6 +91,7 @@ export async function restore(db,envelope,key,journal) {
 
   const sql = list.flatMap(item => item.statements);
   const create = sql.filter(statement => /^CREATE TABLE /.test(statement));
+  const alter=sql.filter(statement=>/^ALTER TABLE /.test(statement));
   const attach = sql.filter(statement => /^CREATE (?:(?:UNIQUE )?INDEX|TRIGGER) /.test(statement));
   const records = expectedTables.flatMap(table => {
     const rows = saved.tables[table];
@@ -132,6 +133,7 @@ export async function restore(db,envelope,key,journal) {
   await db.batch([
     db.prepare(migrationLedger),
     ...create.map(statement => db.prepare(statement)),
+    ...alter.map(statement=>db.prepare(statement)),
     db.prepare('PRAGMA defer_foreign_keys=ON'),
     ...records,...attach.map(statement => db.prepare(statement)),...deletion,
   ]);
