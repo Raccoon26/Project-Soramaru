@@ -2,19 +2,31 @@
   "name": "project-soramaru",
   "private": true,
   "type": "module",
-  "workspaces": ["services/api", "packages/shared"],
-  "engines": { "node": ">=24 <25" },
+  "workspaces": [
+    "services/api",
+    "packages/shared"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
   "scripts": {
     "dev:api": "npm run dev --workspace @soramaru/api",
     "build:api": "npm run build --workspace @soramaru/api",
     "lint": "eslint . && tsc --noEmit",
     "test": "node --test tests/*.test.mjs services/api/test/*.test.mjs",
-    "check:repo": "node tools/check-repo.mjs"
+    "check:repo": "node tools/check-repo.mjs",
+    "db:migrate": "node tools/local-backend.mjs migrate",
+    "db:seed": "node tools/local-backend.mjs seed",
+    "db:reset": "node tools/local-backend.mjs reset",
+    "smoke:api": "node tools/smoke-backend.mjs",
+    "db:backup": "node tools/local-backup.mjs backup",
+    "db:restore-test": "node tools/local-backup.mjs verify"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "24.12.4",
     "eslint": "10.15.0",
+    "miniflare": "5.20261123.0-beta",
     "typescript": "6.0.3",
     "typescript-eslint": "8.74.0"
   }

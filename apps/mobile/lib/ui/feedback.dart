@@ -20,7 +20,8 @@ enum ViewState {
     Icons.pause_circle_outline,
   ),
   removed('このコンテンツは削除されました', '一覧に戻って、ほかのコンテンツをご覧ください。', Icons.delete_outline),
-  maintenance('メンテナンス中です', 'しばらくしてから、もう一度ご確認ください。', Icons.build_outlined);
+  maintenance('メンテナンス中です', 'しばらくしてから、もう一度ご確認ください。', Icons.build_outlined),
+  rateLimited('リクエストが多すぎます', '時間をおいて、もう一度お試しください。', Icons.hourglass_empty);
 
   const ViewState(this.title, this.message, this.icon);
   final String title;

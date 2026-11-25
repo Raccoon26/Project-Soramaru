@@ -30,6 +30,7 @@ npm run check:repo
 npm run lint
 npm test
 npm run build:api
+npm run db:migrate
 npm run dev:api
 ```
 
@@ -68,3 +69,9 @@ APK는 `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`에 생성됩니
 ```
 
 DEV-01 캡처는 `flutter test test/preview_golden_test.dart --dart-define=CAPTURE_DEV01=true`로 생성합니다. 기존 Golden은 Windows와 Linux에서 운영체제별 합성 기준을 사용합니다. [디자인 시스템](DESIGN_SYSTEM.md) · [검증 기록](TEST_REPORT.md)
+
+## DEV-03 로컬 서버와 모바일 연결 확인
+
+`npm run db:migrate` 뒤 `npm run smoke:api`로 실제 로컬 workerd가 D1 준비 상태에 도달하는지 검사합니다. `npm run dev:api`를 중지할 때는 Ctrl+C를 사용합니다. 데이터 초기화, 백업과 복원 절차는 각 안내를 참조합니다. [서버 안내](BACKEND_GUIDE.md) · [마이그레이션](DATABASE_MIGRATION_GUIDE.md) · [비용 제어](COST_CONTROL_GUIDE.md) · [백업과 복구](BACKUP_RESTORE_GUIDE.md)
+
+Android 에뮬레이터에서는 `flutter run --dart-define=DEV_API_ORIGIN=http://10.0.2.2:8787`로 `その他`의 개발용 연결 확인을 활성화할 수 있습니다. 실제 로컬 USB 기기는 프로젝트 외 규칙을 바꾸지 않고 필요한 개발 연결 경로를 준비한 뒤 접근합니다. 서버는 사용자가 연결 확인을 눌렀을 때만 호출됩니다.

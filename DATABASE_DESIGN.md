@@ -35,3 +35,26 @@
 ## 기기 SQLite
 
 드래프트 본문·태그·파일 참조, 계정별 최근 열람, 재생 위치, 재생목록 메타, 다운로드 상태·권리 임대·만료, 동기화 작업을 상태기계로 보관한다. 버전 기반 마이그레이션과 사용자가 로그아웃한 경우 데이터·다운로드·키를 삭제하는 흐름을 시험한다. 화면 캐시는 조건부 갱신하며 토큰이나 미디어 서명 URL을 DB에 넣지 않는다.
+
+## DEV-03 실제 스키마와 후속 변경
+
+| 버전 | 적용 테이블 |
+|---|---|
+| 0001 | 회원번호 장부, members, member_profiles, terms_acceptances, member_sessions, role_grants, official_identities, staff_credentials, staff_challenges, deletion_requests |
+| 0002 | posts, comments, tags, post_tags, blocks, reactions, badge_catalog, badge_awards, applied_badges |
+| 0003 | media_capacity, media_owner_capacity, media_reservations, media_objects, post_media, content_items |
+| 0004 | usage_windows, feature_flags, rate_limits, scheduled_jobs, outbox, idempotency_keys, audit_events, notifications, notification_reads |
+
+위 34개와 체크섬 장부 `schema_migrations`를 Local/Test에 구현했다. 원래 제품 목록의 29개와 조정·장부용 6개다. 회원번호는 장부와 회원 tombstone에서 영구 고정한다. 공통 알림은 수신자가 NULL인 이벤트 1개와 읽은 회원의 `notification_reads`만 추가한다. 공통 이벤트의 전체/미읽음 병합은 DEV-13에서 페이지·배지 수를 검증한다.
+
+| 예정 테이블 20개 | 예정 단계·의존성·검증 |
+|---|---|
+| media_uploads, gallery_items | 06. 예약·quarantine·content FK 및 EXIF/썸네일, 파일/레코드 대사 |
+| comment_media, stamp_sets, stamp_items | 07. 댓글·소유권 및 승인 객체·권리 FK, 첨부 순서와 스탬프 중복 |
+| popular_tags, favorites, recents, collections, collection_items | 08. 대상별 무결성, 비공개 소유자/폴더, 회원+시각+ID 및 태그 순위 인덱스, 검색 범위·차단 |
+| audio_tracks, playlists, playlist_tracks | 09/10/11. 승인 음원/권리 참조 및 위치·정렬 UNIQUE, 재생·다운로드 경계 |
+| card_templates, card_deliveries | 12. 권리 승인, 대상자+종류+JST 전달일 dedupe, 생일·가입 기념 |
+| notification_preferences, push_installations | 13. 설치 식별자, 세션 철회 및 토큰 보존, 푸시 경계 |
+| reports, moderation_actions, support_tickets | 05/13/14. 신고 대상 상태와 처리 트랜잭션, 평가 권한·감사 및 지원 조회 인덱스 |
+
+실제 인덱스는 피드·작성자·콘텐츠 공개·댓글·미읽음·작업을 EXPLAIN과 로컬 D1 행량으로 시험했다. 커서는 기본 20·최대 50개, 시각+ID, 요청자 및 필터 HMAC, 15분 만료를 적용한다. 새로 들어온 상단 항목은 다음 새로고침에서 읽는다. 가시성 삭제·차단은 매 쿼리에서 다시 적용된다. [마이그레이션 가이드](DATABASE_MIGRATION_GUIDE.md)

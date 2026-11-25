@@ -32,6 +32,8 @@ jobs:
       - run: npm run check:repo
       - run: npm run lint
       - run: npm test
+      - run: npm run db:migrate
+      - run: npm run smoke:api
       - run: npm run build:api
 
   flutter:

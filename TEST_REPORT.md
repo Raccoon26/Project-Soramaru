@@ -56,3 +56,22 @@
 회귀 검사에서 웜 링크의 로그인 대기 대상 만료 시 로그인 화면에 남는 문제와 알림 복귀 뒤 대상 탭에 상세가 남는 문제를 발견했다. 세션 전환 처리와 스택 기록 순서를 고쳤으며 동일 목적지가 이미 열린 경우도 테스트했다. 작성 캡처에서 테스트 글꼴에 없던 한자는 DEV-02 전용 OFL 부분집합에 추가했다. 기존 Golden 파일은 유지했다.
 
 `apps/mobile`에서 `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-pub`, `flutter test --no-pub`, `flutter build bundle --no-pub`, `flutter build apk --debug --no-pub --target-platform android-arm64`를 실행한다. `flutter test --no-pub test/navigation_layout_test.dart --dart-define=CAPTURE_DEV02=true`는 585×1230 PNG 12장을 로컬 `.local/dev-02-preview/`에 쓴다. Windows 프로젝트 SDK·캐시·빌드·캡처는 E:를 사용한다. 실제 운영 리소스 생성과 배포 없이 확인했다. [OSV 일괄 조회](https://google.github.io/osv.dev/post-v1-querybatch/)
+
+## DEV-03 로컬 서버 및 통합 검사
+
+| 검사 | 결과와 근거 |
+|---|---|
+| DEV-00~02 회귀 | 변경 전 Flutter 74건, API 3건을 재현했다. Flutter Golden 기준 및 58경로·5탭·9종 링크를 유지했다. |
+| HTTP 및 격리 | Vite/workerd는 빈 Test의 liveness 200·준비 503, 마이그레이션된 Local의 준비 200, 기본 서버의 합성 자격 401을 확인했다. Staging/Production 선택을 차단했다. |
+| D1 | 로컬 바인딩에서 SQL 4버전, 35개 테이블. 초기 설치, v1→v4 업그레이드, 반복·경합 적용, 잘못된 SQL 롤백과 재시도 및 체크섬 드리프트를 검사했다. |
+| 인덱스·데이터 | 실제 D1에서 피드·작성자·공개시간·댓글·알림·작업 인덱스 EXPLAIN, 읽기 메타, 동시 시각 커서·권한·FK·중복 반응·배지·상태 제약을 검증했다. |
+| 비용·레이트 | 모든 비용 항목, UTC 일·월, 70/80/90/95/98%, 플래그, 지표 지연, 헤더 조작 및 동시 다중 요청을 비교했다. 독립 서비스 객체가 공유 로컬 D1에서 한도를 넘지 않았다. 비용 모형은 4 MAU와 9 패턴을 비교한다. |
+| R2 및 작업 | 서로 다른 로컬 비공개·격리 버킷에서 용량 경합, 미승인/다른 회원 접근, Range, 해시, 부분 실패 복구와 고아 삭제를 검사했다. 작업 재시도·최대 횟수·임대 만료와 Outbox의 동시 중복 및 원자 롤백을 확인했다. |
+| 백업 | AES-GCM·SHA-256, 별도 D1 복원, 스키마/데이터 비교, 손상·낡은 삭제 일지 거절 및 삭제 재적용. |
+| 모바일 | DEV-03 API 테스트 8건 추가, 기존 74건 포함 Windows Flutter 82건. API 매핑·시간 제한·재시도·오래된 응답·개발 연결 화면을 검사했다. Flutter 포맷·분석·번들과 ARM64 디버그 APK·서명을 확인했다. 개발 플래그를 지정한 ARM64 릴리스의 매니페스트와 AOT에서 평문·개발 환경 격리도 확인했다. |
+| API/저장소 | TypeScript, ESLint, 로컬 테스트 26건(기존 3건, 신규 23건), Vite 번들·check:repo·actionlint 및 잠금 의존성 점검. 공개 Git·스테이징과 원본 54개 SHA-256을 확인한다. |
+| 실제 운영·기기 | Cloudflare 운영 CPU·청구량, iOS 빌드, Android/iOS 실기기 및 기기 성능은 미검증이다. 로컬 D1 메타와 모형은 공급자 청구를 직접 측정하지 않는다. |
+
+기존 Miniflare v5가 v4 개별 저장 경로 옵션을 사용하지 않아 초기 Vite와 CLI가 서로 다른 DB를 읽었다. 공유 `v3` 경로를 사용하도록 수정하고 준비 검사를 CI에 추가했다. Node의 타입 제거 모드와 호환되는 TypeScript 문법으로 교정했다. Android 네트워크 XML 선언 앞 공백으로 디버그 패키징이 실패해 선언을 첫 줄로 옮겼다. 백업 복원에서 동일 장부를 서로 다른 SQL 공백으로 비교하던 문제를 공용 정의와 정규화로 수정했다. 파일 용량 검사는 회원별 집계 행을 써서 오래된 예약 전체를 읽지 않도록 조정했다.
+
+재현은 [서버 가이드](BACKEND_GUIDE.md)와 `npm run lint && npm test`, `npm run db:migrate && npm run smoke:api && npm run build:api`, 모바일의 `flutter test --no-pub`를 사용한다. [DEV-03 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-03-backend-infrastructure)
