@@ -10,13 +10,16 @@ import type { TrustedNetwork } from './rate.ts';
 import { failure, HttpError, jsonResponse, validateUrl } from './http.ts';
 import { enqueue, runJobs } from './jobs.ts';
 import { MediaStore } from './media.ts';
+import { auditStatement } from './writes.ts';
 import { handleMembership,membershipTarget,ReadReservations } from './membership-api.ts';
 import type { MembershipDependencies } from './membership-api.ts';
 import { observeDatabase } from './membership-metrics.ts';
 
 import { communityTarget,handleCommunity } from './community-api.ts';
 
-type Operation = 'health' | 'readiness' | 'session' | 'community' | 'membership' | 'unknown';
+import { handlePhoto,photoTarget } from './photo-api.ts';
+
+type Operation = 'health' | 'readiness' | 'session' | 'community' | 'photo' | 'membership' | 'unknown';
 interface Event {
   requestId: string;
   operation: Operation;
@@ -66,13 +69,14 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
     }
     const target=membership?membershipTarget(url.pathname):null;
     const community=membership?communityTarget(url.pathname):null;
-    const route=target??community;
+    const photo=membership?photoTarget(url.pathname):null;
+    const route=target??community??photo;
     if (route&&membership) {
-      operation=community?'community':'membership';
+      operation=photo?'photo':community?'community':'membership';
       if (!route.methods.split(', ').includes(request.method)) {
         return send(failure(new HttpError(405,'method_not_allowed'),id,route.methods));
       }
-      if ((url.search&&!community)||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
+      if ((url.search&&!community&&!photo)||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
         return send(failure(new HttpError(400,'invalid_request'),id));
       }
       const now=clock();
@@ -83,9 +87,13 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
           const observed=observeDatabase(env.DB,value=>meta.push(value));
           const activeEnv={...env,DB:observed};
           const scope=network()??'unattributed';
-          const result=community
+          const result=photo?await handlePhoto(request,url,photo,activeEnv,membership,clock,readReservations,scope):community
             ? await handleCommunity(request,url,community,activeEnv,membership,now,readReservations,scope)
             : await handleMembership(request,target!,activeEnv,membership,now,readReservations,scope);
+          if(result instanceof Response) {
+            result.headers.set('X-Request-Id',id);
+            return send(result);
+          }
           return send(result.status===204
             ? new Response(null,{status:204,headers:{'Cache-Control':'no-store','X-Request-Id':id}})
             : jsonResponse(result.data,id,result.status));
@@ -156,7 +164,7 @@ export default {
     const now = Date.now();
     const budget = new Budget(env.DB);
     const admission = await budget.admit('essential',{ jobRuns:1,d1Reads:140,d1Writes:85,
-      d1IndexWrites:40,r2A:12,r2B:10 },now);
+      d1IndexWrites:40,r2A:12,r2B:15 },now);
     if (!admission.allowed) return;
     // Keep revoked/session history for 30 days and prune at most 20 per tick.
     await query(env.DB,`DELETE FROM member_sessions WHERE id IN (
@@ -167,9 +175,29 @@ export default {
     const store = new MediaStore(env);
     const optional = await query(env.DB,`SELECT count(*) AS open FROM feature_flags
       WHERE (name='scheduled_jobs_enabled' AND enabled=1) OR (name='maintenance_mode' AND enabled=0)`).first<{open:number}>();
-    // Only expiry has a runtime handler in DEV-03. Follow-up jobs and outbox
-    // delivery are exercised through explicit test adapters.
-    await runJobs(env.DB,{expire_uploads:async () => { await store.expire(); }},Date.now,5,
-      optional?.open !== 2 || admission.tier === 'reduced' || admission.tier === 'blocked' || admission.tier === 'emergency');
+    const normal=optional?.open===2&&admission.tier==='normal';
+    if(normal&&window%4===0) {
+      const pending=await query(env.DB,`SELECT 1 FROM scheduled_jobs WHERE kind='reconcile_media'
+        AND state IN ('ready','leased') LIMIT 1`).first();
+      if(!pending) await enqueue(env.DB,'reconcile_media','media-scan:'+window,{},now).run();
+    }
+    await runJobs(env.DB,{
+      expire_uploads:async () => { await store.expire(); if(normal) await store.prunePhotos(); },
+      ...(normal?{reconcile_media:async (payload:unknown,jobId:string)=>{
+        const inputs=payload as {quarantine?:string|null;private?:string|null;catalog?:string|null};
+        const next:{quarantine:string|null;private:string|null;catalog:string|null}={quarantine:null,private:null,catalog:null};
+        for(const bucket of ['quarantine','private'] as const) {
+          if(inputs[bucket]!==null) next[bucket]=(await store.reconcile(bucket,inputs[bucket])).cursor;
+        }
+        if(inputs.catalog!==null) {
+          const result=await store.verifyApproved(inputs.catalog);
+          next.catalog=result.cursor;
+          if(result.missing) await auditStatement(env.DB,'job_failure','failed',Date.now()).run();
+        }
+        if(next.quarantine||next.private||next.catalog) {
+          await enqueue(env.DB,'reconcile_media','media-next:'+jobId,next,now+900_000).run();
+        }
+      }}:{}),
+    },Date.now,5,!normal);
   },
 };

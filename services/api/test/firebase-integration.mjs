@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { syntheticJpeg,seedPhotos,syntheticAlbum } from '../../../tools/photo-fixtures.mjs';
+import { digest } from '../src/platform.ts';
 import process from 'node:process';
 import { URL,fileURLToPath } from 'node:url';
 import { createServer } from 'vite';
@@ -34,7 +36,11 @@ async function oob(kind) {
 }
 
 const dbServer=simulator('test',{persist:true,slot});
-try { await migrate(await dbServer.getD1Database('DB')); }
+try {
+  const DB=await dbServer.getD1Database('DB');
+  await migrate(DB);
+  await seedPhotos({DB,APP_ENV:'test',PRIVATE_MEDIA:await dbServer.getR2Bucket('PRIVATE_MEDIA'),QUARANTINE:await dbServer.getR2Bucket('QUARANTINE')});
+}
 finally { await dbServer.dispose(); }
 process.env.SORAMARU_RUNTIME='test';
 process.env.SORAMARU_TEST_SLOT=slot;
@@ -138,10 +144,45 @@ try {
   const report=()=>api('/v1/reports',{...outsiderAuth,method:'POST',body:{kind:'post',targetId:post.result.id,category:'other'}});
   assert.equal((await report()).status,202);
   assert.equal((await report()).status,202);
+  async function fixtureUpload(purpose,bytes,variantOf){
+    const result=await api('/v1/uploads',{...auth,method:'POST',headers:{'idempotency-key':random()},
+      body:{purpose,mime:'image/jpeg',bytes:bytes.byteLength,sha256:await digest(bytes),variantOf}});
+    assert.equal(result.status,201);
+    const id=result.result.id;
+    const put=await fetch(base+'/v1/uploads/'+id+'/body',{method:'PUT',body:bytes,headers:{
+      authorization:'Bearer '+auth.token,'x-app-session':auth.session,'content-type':'image/jpeg',
+    }});
+    assert.equal(put.status,200);
+    assert.equal((await api('/v1/uploads/'+id+'/complete',{...auth,method:'POST'})).status,200);
+    return id;
+  }
+  const fixtureBytes=syntheticJpeg(128,84,25);
+  const media=await fixtureUpload('post',fixtureBytes);
+  await fixtureUpload('thumbnail',syntheticJpeg(64,42,25),media);
+  const withPhoto=await create(auth,{body:'写真の投稿',tags:[],attachments:[media]});
+  assert.equal(withPhoto.status,201);
+  const photoPath='/v1/media/'+media+'?parent=post&parent_id='+withPhoto.result.id+'&variant=full';
+  const fromSecond=await fetch(base+photoPath,{headers:{
+    authorization:'Bearer '+outsiderAuth.token,'x-app-session':outsiderAuth.session,
+  }});
+  assert.equal(fromSecond.status,200);
+  assert.deepEqual(await fromSecond.arrayBuffer(),fixtureBytes);
   assert.equal((await api('/v1/me/blocks/'+post.result.authorId,{...outsiderAuth,method:'PUT'})).status,204);
   assert.equal((await api('/v1/posts/'+post.result.id,outsiderAuth)).status,404);
   assert.equal((await api('/v1/posts/'+quoted.result.id,outsiderAuth)).result.quote,null);
   assert.equal((await api('/v1/posts/'+quoted.result.id,auth)).status,404);
+  assert.equal((await api(photoPath,outsiderAuth)).status,404);
+  assert.equal((await api('/v1/posts/'+withPhoto.result.id,{...auth,method:'DELETE',
+    headers:{'if-match':'"1"','idempotency-key':random()}})).status,204);
+  assert.equal((await api(photoPath,auth)).status,404);
+const seeded=await api('/v1/gallery/'+syntheticAlbum,outsiderAuth);
+  assert.equal(seeded.status,200);
+  assert.equal(seeded.result.photos.length,3);
+  const albumJpeg=await fetch(base+'/v1/media/'+seeded.result.photos[0]+'?parent=album&parent_id='+syntheticAlbum+'&variant=thumb',{headers:{
+    authorization:'Bearer '+outsiderAuth.token,'x-app-session':outsiderAuth.session,
+  }});
+  assert.equal(albumJpeg.status,200);
+  assert.ok((await albumJpeg.arrayBuffer()).byteLength>0);
   const deleteKey=random();
   const remove=()=>api('/v1/posts/'+post.result.id,{...auth,method:'DELETE',headers:{'idempotency-key':deleteKey,'if-match':'"1"'}});
   assert.equal((await remove()).status,204);
@@ -172,7 +213,7 @@ try {
   assert.equal((await api('/v1/me/session',{
     token:fresh.result.idToken,session:freshApp.result.sessionToken,
   })).status,401);
-  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation and member community passed');
+  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation, member community and R2 photo visibility passed');
 } finally {
   await worker.close();
 }

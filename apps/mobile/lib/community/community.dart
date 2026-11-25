@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../membership/controller.dart';
 import '../membership/gateway.dart';
+import '../photos/photo_view.dart';
 import 'drafts.dart';
 
 class Community extends ChangeNotifier {
@@ -11,6 +12,8 @@ class Community extends ChangeNotifier {
   final Map<String, Future<Json>> _reads = {};
   bool _closed = false;
   int revision = 0;
+  final photoMemory = PhotoMemory();
+  bool get hasPhotos => account.gateway is PhotoGateway;
   String? get owner => account.memberId;
 
   Future<Json> read(String path, [Map<String, String> params = const {}]) {
@@ -41,6 +44,7 @@ class Community extends ChangeNotifier {
     );
     if (!_closed && path != '/v1/reports') {
       revision++;
+      photoMemory.clear();
       _reads.clear();
       notifyListeners();
     }
@@ -50,6 +54,7 @@ class Community extends ChangeNotifier {
   @override
   void dispose() {
     _closed = true;
+    photoMemory.clear();
     _reads.clear();
     super.dispose();
   }

@@ -3,7 +3,16 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:bootstrap/community/community.dart';
+import 'package:bootstrap/community/drafts.dart';
 import 'package:bootstrap/membership/controller.dart';
+import 'package:bootstrap/network/api_client.dart';
+import 'package:bootstrap/photos/photo_jobs.dart';
+import 'package:bootstrap/photos/processing.dart';
+import 'package:drift/native.dart';
+import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
+
 import 'package:bootstrap/membership/gateway.dart';
 import 'package:bootstrap/membership/screens.dart';
 import 'package:bootstrap/navigation/navigation_app.dart';
@@ -253,6 +262,37 @@ void main() {
           }
           final feed = await controller.community('/v1/posts?limit=20');
           expect((feed['items'] as List), isNotEmpty);
+          final drafts = DraftRepository(
+            DraftDatabase(NativeDatabase.memory()),
+            Keys(),
+          );
+          final community = Community(controller, drafts);
+          try {
+            final raster = img.Image(width: 1920, height: 1440, numChannels: 3);
+            img.fill(raster, color: img.ColorRgb8(89, 134, 215));
+            final photo = await processPicked(
+              XFile.fromData(img.encodePng(raster)),
+            );
+            final id = await PhotoJobs(community)
+                .upload(PhotoJob(photo), 'post', TransferCancel(), (_) {});
+            final post = await controller.community(
+              '/v1/posts',
+              method: 'POST',
+              headers: {'idempotency-key': draftId()},
+              body: {
+                'body': '',
+                'tags': [],
+                'attachments': [id],
+              },
+            );
+            expect(post['photos'], [id]);
+            final path =
+                '/v1/media/$id?parent=post&parent_id=${post['id']}&variant=full';
+            expect(await controller.photoBytes(path), photo.full);
+          } finally {
+            community.dispose();
+            await drafts.close();
+          }
           final devices = await controller.listDevices();
           expect(devices, hasLength(1));
           await controller.signOut();

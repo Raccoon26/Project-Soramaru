@@ -61,3 +61,12 @@ DEV-03 **COMPLETE**는 [PR #5](https://github.com/Raccoon26/Project-Soramaru/pul
 ## DEV-05 팬 게시판
 
 DEV-04 **COMPLETE**는 [PR #6](https://github.com/Raccoon26/Project-Soramaru/pull/6), `bd61c288b8c9f616405530eb2fc7962517c8053f`와 [최종 CI](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45613644911)에서 확인한다. DEV-05의 범위와 검증 결과는 [팬 게시판 가이드](FAN_COMMUNITY_GUIDE.md)와 [테스트 보고](TEST_REPORT.md)에 기록한다.
+
+
+## DEV-06 사진과 공식 갤러리
+
+DEV-05 **COMPLETE**는 [PR #7](https://github.com/Raccoon26/Project-Soramaru/pull/7)의 병합 커밋 `2c448e4fe8007d8f9f7b362d963dd4f255b446f1`로 확인했다.
+
+DEV-06은 사진 선택·정제·암호화 초안, D1 예약·R2 검역·승인, 원자적 게시물 및 프로필 연결, 문맥 기반 회원 열람, 사진 뷰어, 로컬 합성 공식 앨범을 추가했다. D1 v8은 장부를 포함해 41개 테이블이다. [사진 업로드](MEDIA_UPLOAD_GUIDE.md) · [검증 기록](TEST_REPORT.md) · [DEV-06 PR와 검사](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-06-photo-gallery)
+
+실기기 사진 권한·HEIC·색상·배터리, iOS 빌드와 Cloudflare 운영 CPU·공급자 청구는 출시 검증에 남아 있다. 운영 리소스와 실제 계정 추가 및 서버 운영비 증가 없이 로컬에서 개발했다. DEV-07은 별도 지시 후 시작한다.

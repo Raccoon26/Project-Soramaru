@@ -41,6 +41,22 @@ class ApiReply {
   final String? requestId;
 }
 
+class ByteReply {
+  const ByteReply(this.status, this.body, {this.retryAfter, this.requestId});
+  final int status;
+  final Uint8List body;
+  final String? retryAfter, requestId;
+}
+
+class TransferCancel {
+  bool cancelled = false;
+  void Function()? _abort;
+  void cancel() {
+    cancelled = true;
+    _abort?.call();
+  }
+}
+
 abstract interface class ApiTransport {
   Future<ApiReply> get(Uri uri, {String? token});
   void close();
@@ -65,20 +81,63 @@ class IoApiTransport implements ApiTransport {
     String? form,
     int maxReplyBytes = 65_536,
   }) async {
+    final result = await binary(
+      uri,
+      method,
+      token: token,
+      headers: headers,
+      body: body,
+      form: form,
+      maxReplyBytes: maxReplyBytes,
+    );
+    return ApiReply(
+      result.status,
+      utf8.decode(result.body, allowMalformed: true),
+      retryAfter: result.retryAfter,
+      requestId: result.requestId,
+    );
+  }
+
+  Future<ByteReply> binary(
+    Uri uri,
+    String method, {
+    String? token,
+    Map<String, String> headers = const {},
+    Map<String, Object?>? body,
+    String? form,
+    Uint8List? upload,
+    int maxReplyBytes = 800000,
+    TransferCancel? cancel,
+    void Function(double)? progress,
+  }) async {
     HttpClientRequest? request;
     var timedOut = false;
-    Future<ApiReply> operation() async {
+    Future<ByteReply> operation() async {
       final outgoing = await _client.openUrl(method, uri);
       request = outgoing;
-      if (timedOut) {
+      if (timedOut || cancel?.cancelled == true) {
         outgoing.abort();
         throw TimeoutException('Request timed out');
       }
+      cancel?._abort = outgoing.abort;
       outgoing.followRedirects = false;
       outgoing.headers.set('accept', 'application/json');
       if (token != null) outgoing.headers.set('authorization', 'Bearer $token');
       headers.forEach(outgoing.headers.set);
-      if (body != null) {
+      if (upload != null) {
+        outgoing.headers.contentType = ContentType('image', 'jpeg');
+        outgoing.contentLength = upload.length;
+        const step = 64 * 1024;
+        for (var start = 0; start < upload.length; start += step) {
+          if (cancel?.cancelled == true) {
+            throw const ApiFailure(ApiIssue.cancelled);
+          }
+          final end = (start + step).clamp(0, upload.length);
+          outgoing.add(Uint8List.sublistView(upload, start, end));
+          await outgoing.flush();
+          progress?.call(end / upload.length);
+        }
+      } else if (body != null) {
         outgoing.headers.contentType = ContentType.json;
         outgoing.write(jsonEncode(body));
       } else if (form != null) {
@@ -96,22 +155,26 @@ class IoApiTransport implements ApiTransport {
         }
         bytes.add(chunk);
       }
-      return ApiReply(
+      return ByteReply(
         response.statusCode,
-        utf8.decode(bytes.takeBytes(), allowMalformed: true),
+        bytes.takeBytes(),
         retryAfter: response.headers.value('retry-after'),
         requestId: response.headers.value('x-request-id'),
       );
     }
 
-    return operation().timeout(
-      timeout,
-      onTimeout: () {
-        timedOut = true;
-        request?.abort();
-        throw TimeoutException('Request timed out');
-      },
-    );
+    try {
+      return await operation().timeout(
+        timeout,
+        onTimeout: () {
+          timedOut = true;
+          request?.abort();
+          throw TimeoutException('Request timed out');
+        },
+      );
+    } finally {
+      cancel?._abort = null;
+    }
   }
 
   @override

@@ -56,7 +56,7 @@ jobs:
           echo "4ad17fc8462fbcef2ba19ff4a78c0a16b7147fde1add8578e267ea62cdb92678  $archive" | sha256sum --check
           tar -xJf "$archive" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
-      - name: Analyze, test and build
+      - name: Analyze and test
         working-directory: apps/mobile
         env:
           PUB_CACHE: ${{ runner.temp }}/soramaru-pub
@@ -66,4 +66,20 @@ jobs:
           dart format --output=none --set-exit-if-changed lib test
           flutter --suppress-analytics analyze --no-pub
           flutter --suppress-analytics test --no-pub
-          flutter --suppress-analytics build apk --debug --no-pub --target-platform android-arm64
+      - name: Build Android ARM64
+        working-directory: apps/mobile
+        shell: bash
+        env:
+          PUB_CACHE: ${{ runner.temp }}/soramaru-pub
+          GRADLE_USER_HOME: ${{ runner.temp }}/soramaru-gradle
+        run: |
+          log="$RUNNER_TEMP/soramaru-gradle.log"
+          for attempt in 1 2 3; do
+            if flutter --suppress-analytics build apk --debug --no-pub --target-platform android-arm64 2>&1 | tee "$log"; then
+              exit 0
+            fi
+            if (( attempt == 3 )) || ! grep -Ei 'repo\.maven\.apache\.org|repo1\.maven\.org' "$log" | grep -Eq '429|Too Many Requests'; then
+              exit 1
+            fi
+            sleep "$(( attempt * 15 ))"
+          done

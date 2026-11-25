@@ -94,19 +94,27 @@ class OsDraftKeys implements DraftKeys {
 class DraftDatabase extends GeneratedDatabase {
   DraftDatabase(super.executor);
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
   @override
   Iterable<TableInfo> get allTables => const [];
+  static const createPhotos =
+      'CREATE TABLE draft_photos(owner TEXT NOT NULL,draft TEXT NOT NULL,id TEXT NOT NULL,blob BLOB NOT NULL,PRIMARY KEY(owner,id))';
   @override
   MigrationStrategy get migration => MigrationStrategy(
-    onCreate: (_) async => customStatement(
-      'CREATE TABLE drafts(owner TEXT NOT NULL,id TEXT NOT NULL,updated INTEGER NOT NULL,blob TEXT NOT NULL,PRIMARY KEY(owner,id))',
-    ),
+    onCreate: (_) async {
+      await customStatement(
+        'CREATE TABLE drafts(owner TEXT NOT NULL,id TEXT NOT NULL,updated INTEGER NOT NULL,blob TEXT NOT NULL,PRIMARY KEY(owner,id))',
+      );
+      await customStatement(createPhotos);
+    },
     onUpgrade: (_, from, to) async {
       if (from == 1) {
         await customStatement(
           'ALTER TABLE drafts ADD COLUMN updated INTEGER NOT NULL DEFAULT 0',
         );
+      }
+      if (from == 1 || from == 2) {
+        await customStatement(createPhotos);
       } else {
         throw StateError('Unknown drafts schema');
       }
@@ -201,15 +209,95 @@ class DraftRepository {
     return drafts;
   });
 
-  Future<void> remove(String owner, String id) => _serial(
+  Future<void> storePhoto(
+    String owner,
+    String draft,
+    String id,
+    List<int> payload,
+  ) => _serial(() async {
+    var raw = await keys.read(owner);
+    if (raw == null) {
+      raw = base64Encode(await (await _cipher.newSecretKey()).extractBytes());
+      await keys.write(owner, raw);
+    }
+    final sealed = await _cipher.encrypt(
+      payload,
+      secretKey: SecretKey(base64Decode(raw)),
+      aad: utf8.encode('photo:$owner:$draft:$id'),
+    );
+    final bytes = Uint8List.fromList(sealed.concatenation());
+    final used = await database
+        .customSelect(
+          'SELECT coalesce(sum(length(blob)),0) AS used FROM draft_photos WHERE owner=? AND id<>?',
+          variables: [Variable(owner), Variable(id)],
+        )
+        .getSingle();
+    if (used.read<int>('used') + bytes.length > 35 * 1024 * 1024) {
+      throw StateError('Draft photo limit');
+    }
+    await database.customStatement(
+      'INSERT INTO draft_photos VALUES (?,?,?,?) ON CONFLICT(owner,id) DO UPDATE SET blob=excluded.blob WHERE draft=excluded.draft',
+      [owner, draft, id, bytes],
+    );
+  });
+
+  Future<Uint8List?> readPhoto(
+    String owner,
+    String draft,
+    String id,
+  ) => _serial(() async {
+    final raw = await keys.read(owner);
+    if (raw == null) return null;
+    final row = await database
+        .customSelect(
+          'SELECT blob FROM draft_photos WHERE owner=? AND draft=? AND id=?',
+          variables: [Variable(owner), Variable(draft), Variable(id)],
+        )
+        .getSingleOrNull();
+    if (row == null) return null;
+    final box = SecretBox.fromConcatenation(
+      row.read<Uint8List>('blob'),
+      nonceLength: 12,
+      macLength: 16,
+    );
+    try {
+      return Uint8List.fromList(
+        await _cipher.decrypt(
+          box,
+          secretKey: SecretKey(base64Decode(raw)),
+          aad: utf8.encode('photo:$owner:$draft:$id'),
+        ),
+      );
+    } on SecretBoxAuthenticationError {
+      return null;
+    }
+  });
+
+  Future<void> removePhoto(String owner, String draft, String id) => _serial(
     () => database.customStatement(
-      'DELETE FROM drafts WHERE owner=? AND id=?',
-      [owner, id],
+      'DELETE FROM draft_photos WHERE owner=? AND draft=? AND id=?',
+      [owner, draft, id],
     ),
+  );
+
+  Future<void> remove(String owner, String id) => _serial(
+    () => database.transaction(() async {
+      await database.customStatement(
+        'DELETE FROM draft_photos WHERE owner=? AND draft=?',
+        [owner, id],
+      );
+      await database.customStatement(
+        'DELETE FROM drafts WHERE owner=? AND id=?',
+        [owner, id],
+      );
+    }),
   );
 
   Future<void> purge(String owner) => _serial(() async {
     await keys.remove(owner);
+    await database.customStatement('DELETE FROM draft_photos WHERE owner=?', [
+      owner,
+    ]);
     await database.customStatement('DELETE FROM drafts WHERE owner=?', [owner]);
   });
 

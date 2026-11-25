@@ -107,7 +107,18 @@ abstract interface class MembershipGateway {
   void dispose();
 }
 
-class LoopbackMembership implements MembershipGateway {
+abstract interface class PhotoGateway {
+  Future<Uint8List> photoBytes(
+    String path, {
+    required String token,
+    required String session,
+    Uint8List? upload,
+    TransferCancel? cancel,
+    void Function(double)? progress,
+  });
+}
+
+class LoopbackMembership implements MembershipGateway, PhotoGateway {
   LoopbackMembership(String host)
     : _worker = Uri(scheme: 'http', host: host, port: 8787),
       _firebase = Uri(scheme: 'http', host: host, port: 9099) {
@@ -249,9 +260,10 @@ class LoopbackMembership implements MembershipGateway {
         target.hasScheme ||
         target.hasFragment ||
         !RegExp(
-          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36})?|members/[0-9a-f-]{36}|tags/popular|reports|me/blocks/[0-9a-f-]{36})$',
+          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36})?|members/[0-9a-f-]{36}|tags/popular|reports|uploads(?:/[0-9a-f-]{36}(?:/complete)?)?|gallery(?:/[0-9a-f-]{36})?|media/grants|me/blocks/[0-9a-f-]{36})$',
         ).hasMatch(target.path) ||
-        (target.hasQuery && target.path != '/v1/posts')) {
+        (target.hasQuery &&
+            !{'/v1/posts', '/v1/gallery'}.contains(target.path))) {
       throw ArgumentError('Unknown membership API path');
     }
     return _send(
@@ -264,6 +276,50 @@ class LoopbackMembership implements MembershipGateway {
       token: idToken,
       headers: {...headers, 'x-app-session': ?appSession},
     );
+  }
+
+  @override
+  Future<Uint8List> photoBytes(
+    String path, {
+    required String token,
+    required String session,
+    Uint8List? upload,
+    TransferCancel? cancel,
+    void Function(double)? progress,
+  }) async {
+    final uri = Uri.parse(path);
+    final matcher = upload == null
+        ? r'^/v1/media/[0-9a-f-]{36}$'
+        : r'^/v1/uploads/[0-9a-f-]{36}/body$';
+    if (uri.hasAuthority ||
+        uri.hasScheme ||
+        uri.hasFragment ||
+        !RegExp(matcher).hasMatch(uri.path) ||
+        (upload != null && (uri.hasQuery || upload.length > 800000))) {
+      throw const MembershipFailure('invalid_request', 400);
+    }
+    final ByteReply response;
+    try {
+      response = await _transport.binary(
+        _worker.replace(path: uri.path, query: uri.hasQuery ? uri.query : null),
+        upload == null ? 'GET' : 'PUT',
+        token: token,
+        headers: {'x-app-session': session},
+        upload: upload,
+        cancel: cancel,
+        progress: progress,
+      );
+    } on Object {
+      if (cancel?.cancelled == true) throw const MembershipFailure('cancelled');
+      throw const MembershipFailure('unavailable');
+    }
+    if (response.status >= 200 && response.status < 300) return response.body;
+    String code = 'unavailable';
+    try {
+      final value = jsonDecode(utf8.decode(response.body)) as Json;
+      code = (value['error'] as Json)['code'] as String;
+    } catch (_) {}
+    throw MembershipFailure(code, response.status);
   }
 
   @override

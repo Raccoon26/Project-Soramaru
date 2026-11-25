@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import '../network/api_client.dart';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -275,24 +277,53 @@ class MembershipController extends ChangeNotifier {
         await (hasDrafts?.call(owner) ?? Future.value(false));
   }
 
+  Future<Uint8List> photoBytes(
+    String path, {
+    Uint8List? upload,
+    TransferCancel? cancel,
+    void Function(double)? progress,
+  }) {
+    final media = gateway;
+    if (phase != MemberPhase.active || media is! PhotoGateway) {
+      throw const MembershipFailure('access_denied');
+    }
+    return _authenticated((token, session) {
+      if (session == null) {
+        throw const MembershipFailure('authentication_required');
+      }
+      return (media as PhotoGateway).photoBytes(
+        path,
+        token: token,
+        session: session,
+        upload: upload,
+        cancel: cancel,
+        progress: progress,
+      );
+    });
+  }
+
   Future<Json> _call(
     String path, {
     String method = 'GET',
     Json? body,
     Map<String, String> headers = const {},
-  }) async {
+  }) => _authenticated(
+    (token, session) => gateway.api(
+      path,
+      method: method,
+      idToken: token,
+      appSession: session,
+      body: body,
+      headers: headers,
+    ),
+  );
+
+  Future<T> _authenticated<T>(Future<T> Function(String, String?) call) async {
     final epoch = _epoch;
     try {
       final token = await _token();
       _requireEpoch(epoch);
-      final response = await gateway.api(
-        path,
-        method: method,
-        idToken: token,
-        appSession: _session,
-        body: body,
-        headers: headers,
-      );
+      final response = await call(token, _session);
       _requireEpoch(epoch);
       return response;
     } on MembershipFailure catch (error) {

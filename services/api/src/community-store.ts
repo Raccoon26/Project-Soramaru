@@ -7,6 +7,7 @@ import { digest,isId,query } from './platform.ts';
 import type { Database,SqlValue } from './platform.ts';
 import { idempotent } from './writes.ts';
 import { banned,postInput } from './community-input.ts';
+import { memberVisible,postVisible } from './photo-access.ts';
 
 const actorGuard=`EXISTS (
  SELECT 1 FROM members a JOIN member_sessions s ON s.member_id=a.id
@@ -15,16 +16,6 @@ const actorGuard=`EXISTS (
  AND s.revoked_at IS NULL AND s.expires_at>? AND s.firebase_auth_at>=max(a.revoked_before,?)
  AND (SELECT count(*) FROM policy_acceptances pa WHERE pa.member_id=a.id AND pa.version=?)=?
 )`;
-
-function memberVisible(alias: string) {
-  return `EXISTS(SELECT 1 FROM members m WHERE m.id=${alias} AND m.state='active')
-    AND NOT EXISTS(SELECT 1 FROM blocks WHERE blocker_id=? AND blocked_id=${alias})
-    AND NOT EXISTS(SELECT 1 FROM blocks WHERE blocked_id=? AND blocker_id=${alias})`;
-}
-
-function postVisible(alias: string) {
-  return `${alias}.state='approved' AND ${alias}.publish_at<=? AND ${memberVisible(alias+'.author_id')}`;
-}
 
 const official=`CASE WHEN o.active=1 AND EXISTS (SELECT 1 FROM role_grants g WHERE
  g.member_id=p.author_id AND g.role='artist' AND g.revoked_at IS NULL AND g.starts_at<=(SELECT t FROM request_clock) AND (g.ends_at IS NULL OR g.ends_at>(SELECT t FROM request_clock)))
@@ -35,7 +26,10 @@ const official=`CASE WHEN o.active=1 AND EXISTS (SELECT 1 FROM role_grants g WHE
  THEN 'official' ELSE 'member' END`;
 const joined=`FROM posts p CROSS JOIN member_profiles pr ON pr.member_id=p.author_id
  LEFT JOIN official_identities o ON o.id=p.displayed_identity_id AND o.member_id=p.author_id`;
-const fields=`p.id,p.author_id,p.body,p.version,p.created_at,p.updated_at,p.quote_post_id,p.pin_rank,
+const fields=`p.id,p.author_id,p.body,p.version,p.created_at,p.updated_at,p.quote_post_id,p.pin_rank,pr.avatar_media_id,
+ (SELECT json_group_array(media_id) FROM (SELECT pm.media_id FROM post_media pm
+   JOIN media_reservations r ON r.id=pm.media_id AND r.purpose='post'
+   WHERE pm.post_id=p.id ORDER BY pm.position)) AS photos,
  CASE WHEN (${official})='member' THEN pr.nickname ELSE o.display_name END AS nickname,
  ${official} AS category,
  (SELECT json_group_array(json_object('id',t.id,'label',t.label)) FROM post_tags pt JOIN tags t ON t.id=pt.tag_id WHERE pt.post_id=p.id) AS tags,
@@ -47,12 +41,12 @@ const listFields=fields.replace('p.body,','substr(p.body,1,1200) AS body,');
 
 interface Row {
  id:string;author_id:string;body:string;version:number;created_at:number;updated_at:number;quote_post_id:string|null;
- pin_rank:number;nickname:string;category:string;tags:string;quote:string|null;
+ pin_rank:number;avatar_media_id:string|null;photos:string;nickname:string;category:string;tags:string;quote:string|null;
 }
 
 function item(p: Row) {
   return {id:p.id,authorId:p.author_id,body:p.body,version:p.version,createdAt:p.created_at,updatedAt:p.updated_at,
-    nickname:p.nickname,category:p.category,pinned:p.pin_rank>0&&p.category!=='member',tags:JSON.parse(p.tags) as unknown[],
+    nickname:p.nickname,avatarMediaId:p.avatar_media_id,photos:JSON.parse(p.photos) as string[],category:p.category,pinned:p.pin_rank>0&&p.category!=='member',tags:JSON.parse(p.tags) as unknown[],
     quoteId:p.quote_post_id,quote:p.quote===null?null:JSON.parse(p.quote) as unknown};
 }
 
@@ -116,7 +110,7 @@ export class CommunityStore {
   }
 
   async member(id: string) {
-    const row=await query(this.db,`SELECT member_id AS id,nickname,biography FROM member_profiles
+    const row=await query(this.db,`SELECT member_id AS id,nickname,biography,avatar_media_id AS avatarMediaId FROM member_profiles
       WHERE member_id=? AND ${memberVisible('member_id')}`, id,this.id,this.id).first();
     if (!row) throw new HttpError(404,'not_found');
     return row;
@@ -125,20 +119,29 @@ export class CommunityStore {
   async save(id: string|null, input: Record<string,unknown>, key: string, expected: number|null) {
     const data=postInput(input,id!==null);
     const postId=id??crypto.randomUUID();
-    const fingerprint=await digest(JSON.stringify([data.body.normalize('NFC'),data.quoteId]));
+    const attachments=data.attachments===null?null:JSON.stringify(data.attachments);
+    const fingerprint=await digest(JSON.stringify([data.body.normalize('NFC'),data.quoteId,...(attachments?[attachments]:[])]));
+    const permitted=`coalesce(json_array_length(?),0)=(SELECT count(DISTINCT expected_sha) FROM media_reservations
+      WHERE id IN (SELECT value FROM json_each(?))) AND NOT EXISTS(SELECT 1 FROM json_each(?) picked WHERE NOT EXISTS(
+      SELECT 1 FROM media_reservations r JOIN media_objects m ON m.id=r.id
+      WHERE r.id=picked.value AND r.owner_id=? AND r.purpose='post' AND r.state IN ('approved','attached')
+      AND m.width IS NOT NULL AND EXISTS(SELECT 1 FROM media_objects thumb JOIN media_reservations tr ON tr.id=thumb.id
+        WHERE thumb.variant_of=r.id AND thumb.owner_id=r.owner_id AND tr.purpose='thumbnail'
+        AND thumb.width IS NOT NULL AND tr.state IN ('approved','attached'))))`;
     const version=expected===null?1:expected+1;
     const first=id===null?
       query(this.db,`INSERT INTO posts(id,author_id,body,state,created_at,updated_at,publish_at,quote_post_id,content_hash)
         SELECT ?,?,?,'approved',?,?,?,?,? WHERE ${actorGuard}
         AND (? IS NULL OR EXISTS(SELECT 1 FROM posts q WHERE q.id=? AND ${postVisible('q')}))
-        AND NOT EXISTS(SELECT 1 FROM posts WHERE author_id=? AND content_hash=? AND state='approved' AND created_at>?)`,
+        AND ${permitted} AND NOT EXISTS(SELECT 1 FROM posts WHERE author_id=? AND content_hash=? AND state='approved' AND created_at>?)`,
         postId,this.id,data.body,this.now,this.now,this.now,data.quoteId,fingerprint,...this.guard,
-        data.quoteId,data.quoteId,...this.visibility,this.id,fingerprint,this.now-300_000):
+        data.quoteId,data.quoteId,...this.visibility,attachments,attachments,attachments,this.id,this.id,fingerprint,this.now-300_000):
       query(this.db,`UPDATE posts SET body=?,updated_at=max(updated_at,?),version=version+1,content_hash=?
-        WHERE id=? AND author_id=? AND state='approved' AND displayed_identity_id IS NULL AND version=? AND (length(?)>0 OR quote_post_id IS NOT NULL)
-        AND ${actorGuard}`,data.body,this.now,fingerprint,id,this.id,expected,data.body.trim(),...this.guard);
+        WHERE id=? AND author_id=? AND state='approved' AND displayed_identity_id IS NULL AND version=? AND (length(?)>0 OR quote_post_id IS NOT NULL OR json_array_length(?)>0
+          OR (? IS NULL AND EXISTS(SELECT 1 FROM post_media WHERE post_id=posts.id)))
+        AND ${actorGuard} AND ${permitted}`,data.body,this.now,fingerprint,id,this.id,expected,data.body.trim(),attachments,attachments,...this.guard,attachments,attachments,attachments,this.id);
     const result=await idempotent(this.db,this.id,id===null?'post.create':'post.edit',key,
-      {id,version:expected,body:data.body,quoteId:data.quoteId,tags:data.tags},this.now,()=>({
+      {id,version:expected,body:data.body,quoteId:data.quoteId,tags:data.tags,...(attachments===null?{}:{attachments:data.attachments})},this.now,()=>({
         result:{id:postId,version},
         statements:[
           query(this.db,'DELETE FROM post_tags WHERE post_id=?',postId),
@@ -146,6 +149,13 @@ export class CommunityStore {
             query(this.db,`INSERT INTO tags VALUES (?,?,?) ON CONFLICT(normalized) DO NOTHING`,
               crypto.randomUUID(),tag.normalized,tag.label),
             query(this.db,`INSERT INTO post_tags SELECT ?,id FROM tags WHERE normalized=?`,postId,tag.normalized),
+          ]),
+          ...(attachments===null?[]:[
+            query(this.db,'UPDATE media_reservations SET updated_at=? WHERE id IN (SELECT media_id FROM post_media WHERE post_id=?)',this.now,postId),
+            query(this.db,'DELETE FROM post_media WHERE post_id=?',postId),
+            query(this.db,`INSERT INTO post_media(post_id,media_id,position) SELECT ?,value,CAST(key AS INTEGER) FROM json_each(?)`,postId,attachments),
+            query(this.db,`UPDATE media_reservations SET state='attached',updated_at=? WHERE state='approved'
+              AND id IN (SELECT value FROM json_each(?))`,this.now,attachments),
           ]),
           ...eventStatements(this.db,'post:'+postId+':'+version,id===null?'post.created':'post.edited',{id:postId,version},this.now),
         ],
@@ -161,6 +171,8 @@ export class CommunityStore {
       result:{id},
       statements:[
         query(this.db,'DELETE FROM post_tags WHERE post_id=?',id),
+        query(this.db,'UPDATE media_reservations SET updated_at=? WHERE id IN (SELECT media_id FROM post_media WHERE post_id=?)',this.now,id),
+        query(this.db,'DELETE FROM post_media WHERE post_id=?',id),
         ...eventStatements(this.db,'post:'+id+':'+(expected+1),'post.deleted',{id},this.now),
       ],
     }),first);

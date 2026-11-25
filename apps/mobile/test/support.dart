@@ -1,11 +1,22 @@
 import 'dart:io';
 
+import 'package:bootstrap/community/drafts.dart';
 import 'package:bootstrap/main.dart';
 import 'package:bootstrap/ui/controls.dart';
 import 'package:bootstrap/ui/design.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+
+class Keys implements DraftKeys {
+  final values = <String, String>{};
+  @override
+  Future<String?> read(String owner) async => values[owner];
+  @override
+  Future<void> write(String owner, String key) async => values[owner] = key;
+  @override
+  Future<void> remove(String owner) async => values.remove(owner);
+}
 
 const previewFont = 'Soramaru Test JP';
 const frameKey = ValueKey('preview-frame');

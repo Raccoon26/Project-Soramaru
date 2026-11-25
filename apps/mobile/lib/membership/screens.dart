@@ -1,5 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../community/community.dart';
+import '../photos/avatar.dart';
+
 import '../navigation/ja.dart';
 import '../ui/controls.dart';
 import '../ui/design.dart';
@@ -477,9 +480,15 @@ class _PolicyConsentState extends State<PolicyConsent> {
 }
 
 class MemberEditor extends StatefulWidget {
-  const MemberEditor(this.account, {required this.onSaved, super.key});
+  const MemberEditor(
+    this.account, {
+    required this.onSaved,
+    this.photoApi,
+    super.key,
+  });
   final MembershipController account;
   final VoidCallback onSaved;
+  final Community? photoApi;
   @override
   State<MemberEditor> createState() => _MemberEditorState();
 }
@@ -498,6 +507,8 @@ class _MemberEditorState extends State<MemberEditor> {
   late final _day = TextEditingController(
     text: _profile['birthDay']?.toString() ?? '',
   );
+  late String? _avatar = _profile['avatarMediaId'] as String?;
+  bool _photoBusy = false;
   late bool _public = _profile['collectionPublic'] == true;
   bool _busy = false;
   String? _failure;
@@ -533,7 +544,7 @@ class _MemberEditorState extends State<MemberEditor> {
         'biography': bio,
         'birthMonth': month,
         'birthDay': day,
-        'avatarMediaId': _profile['avatarMediaId'],
+        'avatarMediaId': _avatar,
         'collectionPublic': _public,
       }, _profile['version'] as int);
       if (mounted) widget.onSaved();
@@ -548,6 +559,14 @@ class _MemberEditorState extends State<MemberEditor> {
   Widget build(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
+      if (widget.photoApi case final api? when api.hasPhotos)
+        AvatarPicker(
+          api,
+          _profile['avatarMediaId'] as String?,
+          enabled: !_busy,
+          onBusy: (value) => setState(() => _photoBusy = value),
+          onChanged: (value) => setState(() => _avatar = value),
+        ),
       if (widget.account.phase == MemberPhase.profile)
         const Text('プロフィール設定', style: TypeStyles.heading),
       TextField(
@@ -598,7 +617,7 @@ class _MemberEditorState extends State<MemberEditor> {
       ),
       if (_failure case final message?)
         Semantics(liveRegion: true, child: Text(message)),
-      ActionButton('保存する', onPressed: _busy ? null : _save),
+      ActionButton('保存する', onPressed: _busy || _photoBusy ? null : _save),
     ],
   );
 }

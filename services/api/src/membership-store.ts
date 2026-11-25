@@ -269,7 +269,8 @@ export class MembershipStore {
       query(db,`UPDATE member_profiles SET nickname=?1,biography=?2,birth_month=?3,birth_day=?4,
         collection_public=?5,avatar_media_id=?6,configured_at=coalesce(configured_at,?7),updated_at=?7,version=version+1
         WHERE member_id=?8 AND version=?9 AND
-        (?6 IS NULL OR EXISTS(SELECT 1 FROM media_reservations WHERE id=?6 AND owner_id=?8 AND state IN ('approved','attached') AND mime LIKE 'image/%'))
+        (?6 IS NULL OR EXISTS(SELECT 1 FROM media_reservations WHERE id=?6 AND owner_id=?8 AND state IN ('approved','attached') AND mime='image/jpeg'
+          AND (purpose='avatar' OR (purpose IS NULL AND id=member_profiles.avatar_media_id))))
         AND EXISTS(SELECT 1 FROM member_sessions s JOIN members m ON m.id=s.member_id
           WHERE s.id=?10 AND m.id=?8 AND m.state='active' AND s.expires_at>?7
             AND s.revoked_at IS NULL AND s.firebase_auth_at>=m.revoked_before)`,

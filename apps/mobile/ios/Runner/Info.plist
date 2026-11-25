@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+  <key>NSPhotoLibraryUsageDescription</key>
+  <string>投稿やプロフィールに追加する写真を選ぶために利用します。</string>
+  <key>NSCameraUsageDescription</key>
+  <string>投稿やプロフィールに追加する写真を撮影するために利用します。</string>
 </dict>
 </plist>

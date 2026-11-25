@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import '../membership/gateway.dart';
+import '../photos/photo_view.dart';
 import '../navigation/destinations.dart';
 import '../navigation/navigation_app.dart';
 import '../ui/content.dart';
@@ -315,6 +316,10 @@ class ForumCard extends StatelessWidget {
     final api = n.community!;
     final quote = post['quote'] as Json?;
     final tags = (post['tags'] as List).whereType<Json>();
+    final photos = (post['photos'] as List? ?? [])
+        .whereType<String>()
+        .map((media) => PhotoPointer('post', id, media))
+        .toList();
     final mine = author == api.owner && post['category'] == 'member';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -376,6 +381,7 @@ class ForumCard extends StatelessWidget {
                             .map((tag) => tag['label'] as String)
                             .toList(),
                         postId: id,
+                        attachments: photos.map((photo) => photo.id).toList(),
                         quoteId: post['quoteId'] as String?,
                         version: post['version'] as int,
                       ),
@@ -418,6 +424,15 @@ class ForumCard extends StatelessWidget {
             ],
           ]),
         ),
+        if (api.hasPhotos && photos.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.all(Space.sm),
+            child: PhotoStrip(
+              api,
+              photos,
+              onOpen: (index) => showPhotoViewer(context, api, photos, index),
+            ),
+          ),
         if (tags.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Space.edge),
