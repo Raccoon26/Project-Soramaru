@@ -62,3 +62,7 @@
 ## DEV-04 스키마
 
 v5는 기존 세션 표에 별칭·OS·Firebase 인증 시각·절대 만료·갱신 시각, 프로필에 사진 참조·컬렉션 공개 범위·설정 완료 시각을 추가한다. `policy_acceptances`, `content_operator_grants`, `membership_audit`를 더해 전체 38개 테이블이다. v6은 기기 조회 인덱스와 공식/운영 역할의 부여·철회 감사 트리거를 추가한다. 기존 회원번호 장부와 전체 생년월일 미수집 정책을 유지한다. [마이그레이션](DATABASE_MIGRATION_GUIDE.md)
+
+## DEV-05 팬 게시판
+
+v7은 posts 본문 열을 UTF-8 바이트 CHECK로 교체하고 순위와 반복 글 해시를 추가한다. 본문, 참조 무결성, 상태와 작성 시간은 기존 값에서 이관한다. 신고 1개 테이블을 추가해 장부를 포함한 39개 테이블이다. [마이그레이션](DATABASE_MIGRATION_GUIDE.md)

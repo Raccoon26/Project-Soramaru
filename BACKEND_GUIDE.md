@@ -37,3 +37,7 @@ DEV-04는 Firebase 검증기와 서버 세션 발급, DEV-05~08은 페이지/차
 ## DEV-04 개발 서버
 
 `npm run db:migrate` 다음에 Firebase Auth Emulator를 별도 콘솔에서 실행하고 `npm run auth:worker`를 실행한다. 로컬 인증이 없는 기본 `dev:api`와 별도 진입이다. 에뮬레이터 인증 모드의 Worker 빌드는 거부한다. Windows·CI는 합성 데이터만 쓰며 운영 활성화에는 별도 승인이 필요하다. [실행 지침](FIREBASE_EMULATOR_GUIDE.md)
+
+## DEV-05 팬 게시판
+
+기존 `npm run test:membership`는 실제 Firebase Auth Emulator·workerd·D1에서 두 합성 회원으로 게시물을 작성하고 인용·신고·차단·삭제까지 실행한다. `node --test services/api/test/community.test.mjs`로 v6 업그레이드, 합성 공식 정체성, 경쟁과 비용을 확인한다.

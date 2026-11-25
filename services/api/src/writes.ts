@@ -15,7 +15,7 @@ function canonical(value: Json): string {
 }
 
 export async function idempotent<T extends Json>(db: Database, actor: string, operation: string, key: string,
-  input: Json, now: number, build: () => { result: T; statements: Statement[] }): Promise<T> {
+  input: Json, now: number, build: () => { result: T; statements: Statement[] }, requiredMutation?: Statement): Promise<T> {
   if (!isId(actor) || !/^[a-z][a-z_.]{1,39}$/.test(operation) || !/^[A-Za-z0-9_-]{8,80}$/.test(key)) {
     throw new HttpError(400,'invalid_request');
   }
@@ -32,13 +32,21 @@ export async function idempotent<T extends Json>(db: Database, actor: string, op
   const proposal = build();
   try {
     await db.batch([
-      query(db,`INSERT INTO idempotency_keys VALUES (?,?,?,?,?,?)`,actor,operation,key,sha,JSON.stringify(proposal.result),now+86_400_000),
+      ...(requiredMutation?[requiredMutation]:[]),
+      query(db,`INSERT INTO idempotency_keys VALUES (?,?,?,${requiredMutation?'CASE WHEN changes()=1 THEN ? ELSE NULL END':'?'},?,?)`,
+        actor,operation,key,sha,JSON.stringify(proposal.result),now+86_400_000),
       ...proposal.statements,
     ]);
     return proposal.result;
   } catch (error) {
     const winner = await find();
-    if (!winner) throw error;
+    if (!winner) {
+      // A missed conditional write aborts the entire batch at the ledger insert.
+      if (requiredMutation&&error instanceof Error&&error.message.includes('NOT NULL constraint failed: idempotency_keys.fingerprint')) {
+        throw new HttpError(409,'conflict');
+      }
+      throw error;
+    }
     return replay(winner);
   }
 }

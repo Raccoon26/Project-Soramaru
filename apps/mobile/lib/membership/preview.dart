@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../community/drafts.dart';
 import '../navigation/navigation_app.dart';
 import '../navigation/session.dart';
 import 'controller.dart';
@@ -17,6 +18,7 @@ class MembershipPreview extends StatefulWidget {
 
 class _MembershipPreviewState extends State<MembershipPreview> {
   MembershipController? _controller;
+  DraftRepository? _drafts;
 
   @override
   void initState() {
@@ -27,9 +29,13 @@ class _MembershipPreviewState extends State<MembershipPreview> {
         ? '10.0.2.2'
         : '127.0.0.1';
     try {
+      final drafts = DraftRepository.local();
+      _drafts = drafts;
       final value = MembershipController(
         LoopbackMembership(setting.isEmpty ? defaultHost : setting),
         OSVault(),
+        purgeDrafts: drafts.purge,
+        hasDrafts: (owner) async => (await drafts.list(owner)).isNotEmpty,
       );
       _controller = value;
       unawaited(value.restore());
@@ -41,6 +47,7 @@ class _MembershipPreviewState extends State<MembershipPreview> {
   @override
   void dispose() {
     _controller?.dispose();
+    if (_drafts case final drafts?) unawaited(drafts.close());
     super.dispose();
   }
 
@@ -55,6 +62,7 @@ class _MembershipPreviewState extends State<MembershipPreview> {
     return ProviderScope(
       overrides: [
         membershipProvider.overrideWithValue(controller),
+        draftRepositoryProvider.overrideWithValue(_drafts),
         demoSessionProvider.overrideWith(() => EmulatorIdentity(controller)),
       ],
       child: const NavigationApp(),

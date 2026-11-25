@@ -111,6 +111,42 @@ try {
   assert.equal((await api('/v1/sessions/'+second.result.session.id,{...auth,method:'DELETE'})).status,204);
   assert.equal((await api('/v1/me/session',{token,session:second.result.sessionToken})).status,401);
   assert.equal((await api('/v1/sessions/renew',{...auth,method:'POST'})).status,200);
+  const outsiderToken=outsider.result.idToken;
+  const outsiderIssue=await issue(outsiderToken,random());
+  const outsiderAuth={token:outsiderToken,session:outsiderIssue.result.sessionToken};
+  assert.equal((await api('/v1/posts',outsiderAuth)).status,403);
+  await firebase('sendOobCode',{requestType:'VERIFY_EMAIL',idToken:outsiderToken});
+  const otherCodes=(await ask(h+'/emulator/v1/projects/'+demoProject+'/oobCodes')).result.oobCodes;
+  const otherCode=otherCodes.find(item=>item.email===otherMail&&item.requestType==='VERIFY_EMAIL').oobCode;
+  assert.equal((await firebase('update',{oobCode:otherCode})).status,200);
+  outsiderAuth.token=(await refresh(outsider.result.refreshToken)).result.id_token;
+  assert.equal((await api('/v1/me/terms',{...outsiderAuth,method:'POST',body:{version:policy.version,documents}})).status,200);
+  assert.equal((await api('/v1/me',{...outsiderAuth,method:'PATCH',headers:{'if-match':'"1"'},body:{nickname:'青いノート'}})).status,200);
+  const create=(actor,body,key=random())=>api('/v1/posts',{...actor,method:'POST',headers:{'idempotency-key':key},body});
+  const postInput={body:'か\u3099'.repeat(10000),tags:['朝','ＣＡＦＥ','cafe']};
+  const keyForPost=random();
+  const post=await create(auth,postInput,keyForPost);
+  assert.equal(post.status,201);
+  assert.equal(post.result.body,postInput.body);
+  assert.equal((await create(auth,postInput,keyForPost)).result.id,post.result.id);
+  assert.equal((await create(auth,{body:'あ'.repeat(10001),tags:[]})).status,400);
+  assert.equal((await create(outsiderAuth,{body:'不正な公式指定',tags:[],displayedIdentity:post.result.id})).status,400);
+  const quoted=await create(outsiderAuth,{body:'合成の引用',tags:['朝'],quoteId:post.result.id});
+  assert.equal(quoted.status,201);
+  assert.equal(quoted.result.quote.id,post.result.id);
+  assert.equal((await api('/v1/posts?limit=20',outsiderAuth)).result.items.length,2);
+  const report=()=>api('/v1/reports',{...outsiderAuth,method:'POST',body:{kind:'post',targetId:post.result.id,category:'other'}});
+  assert.equal((await report()).status,202);
+  assert.equal((await report()).status,202);
+  assert.equal((await api('/v1/me/blocks/'+post.result.authorId,{...outsiderAuth,method:'PUT'})).status,204);
+  assert.equal((await api('/v1/posts/'+post.result.id,outsiderAuth)).status,404);
+  assert.equal((await api('/v1/posts/'+quoted.result.id,outsiderAuth)).result.quote,null);
+  assert.equal((await api('/v1/posts/'+quoted.result.id,auth)).status,404);
+  const deleteKey=random();
+  const remove=()=>api('/v1/posts/'+post.result.id,{...auth,method:'DELETE',headers:{'idempotency-key':deleteKey,'if-match':'"1"'}});
+  assert.equal((await remove()).status,204);
+  assert.equal((await remove()).status,204);
+  assert.equal((await create(auth,postInput,keyForPost)).status,404);
   const reset=()=>api('/v1/auth/email',{method:'POST',body:{kind:'reset',email}});
   const unrelated=await api('/v1/auth/email',{method:'POST',body:{kind:'reset',email:'unknown@example.invalid'}});
   assert.equal(unrelated.status,202);
@@ -136,7 +172,7 @@ try {
   assert.equal((await api('/v1/me/session',{
     token:fresh.result.idToken,session:freshApp.result.sessionToken,
   })).status,401);
-  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset and device revocation passed');
+  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation and member community passed');
 } finally {
   await worker.close();
 }

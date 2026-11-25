@@ -79,3 +79,7 @@ Android 에뮬레이터에서는 `flutter run --dart-define=DEV_API_ORIGIN=http:
 ## DEV-04 개발용 회원 연결
 
 별도 터미널에서 `npm run auth:emulator`와 `npm run auth:worker`를 실행하고 Flutter에 `--dart-define=DEV_MEMBERSHIP=true`를 지정합니다. Emulator CLI 설치·D1 마이그레이션·테스트·종료 절차는 가이드를 참조합니다. [Firebase 개발 가이드](FIREBASE_EMULATOR_GUIDE.md) · [인증 가이드](AUTHENTICATION_GUIDE.md) · [세션 관리](SESSION_MANAGEMENT_GUIDE.md) · [회원 수명](MEMBER_LIFECYCLE_GUIDE.md)
+
+## DEV-05 팬 게시판
+
+팬 게시판 개발 및 검증은 [팬 게시판 가이드](FAN_COMMUNITY_GUIDE.md), [게시물 수명](POST_LIFECYCLE_GUIDE.md), [기기 임시 글](LOCAL_DRAFT_GUIDE.md), [신고·차단](MODERATION_GUIDE.md)을 사용한다.

@@ -231,6 +231,28 @@ void main() {
           await controller.accept(copy['version'] as String);
           await controller.edit({'nickname': '空の会員'}, 1);
           expect(controller.phase, MemberPhase.active);
+          final limits = [9999, 10000, 10001];
+          for (final limit in limits) {
+            final body = 'か\u3099' * limit;
+            final key =
+                'flutter-community-${DateTime.now().microsecondsSinceEpoch}';
+            final submission = controller.community(
+              '/v1/posts',
+              method: 'POST',
+              headers: {'idempotency-key': key},
+              body: {
+                'body': body,
+                'tags': ['朝'],
+              },
+            );
+            if (limit == 10001) {
+              await expectLater(submission, throwsA(isA<MembershipFailure>()));
+            } else {
+              expect((await submission)['body'], body);
+            }
+          }
+          final feed = await controller.community('/v1/posts?limit=20');
+          expect((feed['items'] as List), isNotEmpty);
           final devices = await controller.listDevices();
           expect(devices, hasLength(1));
           await controller.signOut();

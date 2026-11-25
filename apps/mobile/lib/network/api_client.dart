@@ -63,6 +63,7 @@ class IoApiTransport implements ApiTransport {
     Map<String, String> headers = const {},
     Map<String, Object?>? body,
     String? form,
+    int maxReplyBytes = 65_536,
   }) async {
     HttpClientRequest? request;
     var timedOut = false;
@@ -90,7 +91,7 @@ class IoApiTransport implements ApiTransport {
       final response = await outgoing.close();
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in response) {
-        if (bytes.length + chunk.length > 65_536) {
+        if (bytes.length + chunk.length > maxReplyBytes) {
           throw const ApiFailure(ApiIssue.invalidResponse);
         }
         bytes.add(chunk);

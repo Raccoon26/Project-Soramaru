@@ -57,3 +57,7 @@ DEV-03 **COMPLETE**는 [PR #5](https://github.com/Raccoon26/Project-Soramaru/pul
 이메일·비밀번호, 이메일 확인·비밀번호 재설정, 최신 정책 동의, 프로필과 기기 세션을 실제 Firebase Auth Emulator·workerd·D1에 연결했다. 기존 v1~4 SQL을 유지하고 v5~6으로 확장했다. 운영용 서명 검증기는 로컬 RSA 키로 검증하며 현재 기본 Worker와 릴리스 앱의 보호 기능은 닫혀 있다. [인증 가이드](AUTHENTICATION_GUIDE.md) · [DEV-04 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-04-membership-auth)
 
 실제 운영 인증 이메일·Firebase 프로젝트·Cloudflare CPU와 청구량·iOS 빌드 및 실제 기기 보안 저장소는 후속 검증이다. 이번 서버 운영비 증분은 0엔이다.
+
+## DEV-05 팬 게시판
+
+DEV-04 **COMPLETE**는 [PR #6](https://github.com/Raccoon26/Project-Soramaru/pull/6), `bd61c288b8c9f616405530eb2fc7962517c8053f`와 [최종 CI](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45613644911)에서 확인한다. DEV-05의 범위와 검증 결과는 [팬 게시판 가이드](FAN_COMMUNITY_GUIDE.md)와 [테스트 보고](TEST_REPORT.md)에 기록한다.

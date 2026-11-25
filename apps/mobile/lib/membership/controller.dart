@@ -62,9 +62,18 @@ final membershipProvider = Provider<MembershipController?>((ref) => null);
 const deviceAlias = 'スマートフォン';
 
 class MembershipController extends ChangeNotifier {
-  MembershipController(this.gateway, this.vault);
+  MembershipController(
+    this.gateway,
+    this.vault, {
+    this.purgeDrafts,
+    this.hasDrafts,
+  });
   final MembershipGateway gateway;
   final CredentialVault vault;
+  final Future<void> Function(String)? purgeDrafts;
+  final Future<bool> Function(String)? hasDrafts;
+  String? _owner;
+  String? get memberId => profile?['id'] as String?;
   MemberPhase phase = MemberPhase.starting;
   Json? snapshot;
   FirebaseTokens? _tokens;
@@ -96,7 +105,11 @@ class MembershipController extends ChangeNotifier {
   }
 
   Future<void> _persist(int epoch) {
-    final data = jsonEncode({'refresh': _refreshSecret, 'session': _session});
+    final data = jsonEncode({
+      'refresh': _refreshSecret,
+      'session': _session,
+      'owner': _owner,
+    });
     _storageQueue = _storageQueue.catchError((Object _) {}).then((_) {
       _requireEpoch(epoch);
       return vault.write(data);
@@ -106,6 +119,7 @@ class MembershipController extends ChangeNotifier {
 
   void _assign(Json response) {
     snapshot = response;
+    _owner = memberId ?? _owner;
     phase = switch (response['phase']) {
       'unverified' => MemberPhase.unverified,
       'terms_required' => MemberPhase.terms,
@@ -166,6 +180,7 @@ class MembershipController extends ChangeNotifier {
         }
         _refreshSecret = parsed['refresh'] as String;
         _session = parsed['session'] as String;
+        _owner = parsed['owner'] as String?;
       }
       await refreshStatus();
     } on FormatException {
@@ -201,6 +216,7 @@ class MembershipController extends ChangeNotifier {
   }) async {
     final epoch = ++_epoch;
     _nonce = _random();
+    _owner = null;
     _session = null;
     snapshot = null;
     _tokens = null;
@@ -236,8 +252,27 @@ class MembershipController extends ChangeNotifier {
     final session = issued['sessionToken'];
     if (session is! String) throw const MembershipFailure('unavailable');
     _session = session;
+    _owner = (issued['profile'] as Json?)?['id'] as String?;
     await _persist(epoch);
     _assign(Map<String, Object?>.of(issued)..remove('sessionToken'));
+  }
+
+  Future<Json> community(
+    String path, {
+    String method = 'GET',
+    Json? body,
+    Map<String, String> headers = const {},
+  }) {
+    if (phase != MemberPhase.active) {
+      throw const MembershipFailure('authentication_required');
+    }
+    return _call(path, method: method, body: body, headers: headers);
+  }
+
+  Future<bool> hasPendingDrafts() async {
+    final owner = memberId;
+    return owner != null &&
+        await (hasDrafts?.call(owner) ?? Future.value(false));
   }
 
   Future<Json> _call(
@@ -390,6 +425,8 @@ class MembershipController extends ChangeNotifier {
 
   Future<void> clear([MemberPhase result = MemberPhase.signedOut]) async {
     _epoch++;
+    final owner = _owner;
+    _owner = null;
     _tokens = null;
     _session = null;
     _refreshSecret = null;
@@ -398,7 +435,18 @@ class MembershipController extends ChangeNotifier {
     snapshot = null;
     phase = result;
     _notify();
-    await _erase();
+    try {
+      await _erase();
+    } finally {
+      if (owner != null &&
+          [
+            MemberPhase.expired,
+            MemberPhase.suspended,
+            MemberPhase.deleting,
+          ].contains(result)) {
+        await purgeDrafts?.call(owner);
+      }
+    }
   }
 
   @override

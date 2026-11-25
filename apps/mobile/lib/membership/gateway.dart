@@ -25,6 +25,10 @@ class MembershipFailure implements Exception {
     'cost_limited' => '現在、利用できる機能を制限しています。',
     'maintenance' => 'ただいまメンテナンス中です。',
     'policy_changed' => '最新の規約をご確認ください。',
+    'invalid_post_length' => '本文は10,000文字までです。複雑な文字は短くしてください。',
+    'content_rejected' => '投稿できない文字やリンクが含まれています。本文をご確認ください。',
+    'not_found' => 'この投稿またはプロフィールは表示できません。',
+    'payload_too_large' => '入力されたデータが大きすぎます。',
     'nickname_reserved' => 'この表示名は使用できません。',
     'device_limit' => '登録できる端末数の上限に達しています。',
     'conflict' => '内容が更新されました。読み込み直してからお試しください。',
@@ -135,6 +139,7 @@ class LoopbackMembership implements MembershipGateway {
         headers: headers,
         body: body,
         form: form,
+        maxReplyBytes: uri.path.startsWith('/v1/posts') ? 730000 : 65536,
       );
     } on IOException {
       throw const MembershipFailure('unavailable');
@@ -239,13 +244,21 @@ class LoopbackMembership implements MembershipGateway {
     Json? body,
     Map<String, String> headers = const {},
   }) {
-    if (!RegExp(
-      r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms)?|sessions(?:/renew|/[0-9a-f-]{36})?)$',
-    ).hasMatch(path)) {
+    final target = Uri.parse(path);
+    if (target.hasAuthority ||
+        target.hasScheme ||
+        target.hasFragment ||
+        !RegExp(
+          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36})?|members/[0-9a-f-]{36}|tags/popular|reports|me/blocks/[0-9a-f-]{36})$',
+        ).hasMatch(target.path) ||
+        (target.hasQuery && target.path != '/v1/posts')) {
       throw ArgumentError('Unknown membership API path');
     }
     return _send(
-      _worker.replace(path: path),
+      _worker.replace(
+        path: target.path,
+        query: target.hasQuery ? target.query : null,
+      ),
       method,
       body: body,
       token: idToken,

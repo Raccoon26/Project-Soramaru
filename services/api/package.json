@@ -7,11 +7,12 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@soramaru/shared": "0.0.0"
+    "@soramaru/shared": "0.0.0",
+    "unicode-segmenter": "0.14.5"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "2.0.0-rc.4",
     "@cloudflare/config": "1.0.0-rc.4",
+    "@cloudflare/vite-plugin": "2.0.0-rc.4",
     "vite": "8.3.8"
   }
 }

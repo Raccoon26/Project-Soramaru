@@ -22,7 +22,7 @@ export function cursorKey(secret: Uint8Array<ArrayBuffer>) {
   return crypto.subtle.importKey('raw',secret,{ name:'HMAC',hash:'SHA-256' },false,['sign','verify']);
 }
 
-async function openCursor(key: CryptoKey, raw: string, scope: string, now: number): Promise<Position> {
+export async function openCursor(key: CryptoKey, raw: string, scope: string, now: number): Promise<Position> {
   try {
     const [encoded, mac, extra] = raw.split('.');
     if (raw.length > 768 || !encoded || !mac || extra !== undefined) throw new Error('Malformed cursor');
@@ -36,6 +36,11 @@ async function openCursor(key: CryptoKey, raw: string, scope: string, now: numbe
   } catch {
     throw new HttpError(400,'invalid_request');
   }
+}
+
+export async function sealCursor(key: CryptoKey, position: Position) {
+  const bytes=new TextEncoder().encode(JSON.stringify(position));
+  return encode(bytes)+'.'+encode(new Uint8Array(await crypto.subtle.sign('HMAC',key,bytes)));
 }
 
 export function pageSize(raw: string | null) {

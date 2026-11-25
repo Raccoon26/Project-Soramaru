@@ -37,7 +37,7 @@ export default {
     }
     if (!provisioned||provisioned.value!==secret) {
       const bytes=Uint8Array.from(secret.match(/../g)??[],x=>Number.parseInt(x,16));
-      const key=await crypto.subtle.importKey('raw',bytes,{name:'HMAC',hash:'SHA-256'},false,['sign']);
+      const key=await crypto.subtle.importKey('raw',bytes,{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);
       provisioned={value:secret,api:createApi({membership:{verify,key,async sendCode(kind,value) {
         const result=await firebase('sendOobCode',{
           requestType:kind==='verify'?'VERIFY_EMAIL':'PASSWORD_RESET',

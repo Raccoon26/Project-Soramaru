@@ -2,15 +2,27 @@ import 'destinations.dart';
 import 'sample_data.dart';
 
 class DeepLinks {
-  const DeepLinks(this.resources);
+  const DeepLinks(this.resources, {this.community = false});
   final NavigationResources resources;
+  final bool community;
   static const maxLength = 128;
   static final _shape = RegExp(
     r'^soramaru-dev://open/([a-z-]+)/([a-z][a-z0-9-]{0,31})$',
   );
 
+  static final _forumShape = RegExp(
+    r'^soramaru-dev://open/(post|profile)/([0-9a-f-]{36})$',
+  );
+
   Destination? parse(String input) {
     if (input.length > maxLength || input.contains(RegExp(r'\s'))) return null;
+    final forum = community ? _forumShape.firstMatch(input) : null;
+    if (forum != null && resourceId.hasMatch(forum[2]!)) {
+      return Destination(
+        forum[1] == 'post' ? Screen.post : Screen.user,
+        forum[2],
+      );
+    }
     final match = _shape.firstMatch(input);
     if (match == null) return null;
     final kind = match[1]!;
