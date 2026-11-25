@@ -4,6 +4,11 @@ import 'dart:convert';
 import 'package:material_ui/material_ui.dart';
 
 import '../membership/gateway.dart';
+import '../navigation/destinations.dart';
+import '../network/api_client.dart';
+import '../photos/photo_jobs.dart';
+import '../photos/photo_view.dart';
+import '../photos/selection.dart';
 import '../navigation/navigation_app.dart';
 import '../ui/controls.dart';
 import '../ui/design.dart';
@@ -30,6 +35,9 @@ class _ForumComposerState extends State<ForumComposer>
   late final body = TextEditingController(text: seed.body);
   final tag = TextEditingController();
   late List<String> tags = [...seed.tags];
+  late List<String> attachments = [...seed.attachments];
+  TransferCancel? transfer;
+  double? progress;
   late String? pending = seed.requestKey;
   Future<Json>? quotePreview;
   Timer? debounce;
@@ -58,7 +66,7 @@ class _ForumComposerState extends State<ForumComposer>
     version: seed.version,
     quoteId: seed.quoteId,
     requestKey: pending,
-    attachments: seed.attachments,
+    attachments: [...attachments],
   );
 
   Future<void> _save({bool feedback = false}) async {
@@ -96,6 +104,7 @@ class _ForumComposerState extends State<ForumComposer>
     WidgetsBinding.instance.removeObserver(this);
     debounce?.cancel();
     unawaited(_save());
+    transfer?.cancel();
     body.dispose();
     tag.dispose();
     super.dispose();
@@ -116,10 +125,34 @@ class _ForumComposerState extends State<ForumComposer>
     _changed();
   }
 
+  Future<void> _selectPhotos() async {
+    final navigation = widget.navigation;
+    // Persist the draft before opening an OS picker, which can recreate the app.
+    dirty = true;
+    await _save();
+    if (!mounted || api.owner != owner) return;
+    navigation.selectingPhotos = SelectionRequest(seed.id, [
+      ...attachments,
+    ], seed.postId);
+    final selected = await navigation.open<List<String>>(
+      const Destination(Screen.pickPhoto),
+    );
+    navigation.selectingPhotos = null;
+    if (!mounted || selected == null || api.owner != owner) return;
+    final removed = attachments.where((id) => !selected.contains(id)).toList();
+    attachments = selected;
+    _changed();
+    await _save();
+    if (dirty || api.owner != owner) return;
+    for (final id in removed) {
+      unawaited(PhotoJobs(api).discard(seed.id, id).catchError((Object _) {}));
+    }
+  }
+
   Future<void> _submit() async {
     if (busy) return;
     final text = postText(body.text);
-    if ((text.trim().isEmpty && seed.quoteId == null) ||
+    if ((text.trim().isEmpty && seed.quoteId == null && attachments.isEmpty) ||
         postLength(text) > 10000 ||
         utf8.encode(text).length > 360000 ||
         text.characters.any((c) => c.runes.length > 64)) {
@@ -130,10 +163,28 @@ class _ForumComposerState extends State<ForumComposer>
       busy = true;
       status = null;
     });
+    final cancel = TransferCancel();
+    transfer = cancel;
     try {
+      final photos = <String>[];
+      final jobs = PhotoJobs(api);
+      if (attachments.isNotEmpty) {
+        dirty = true;
+        await _save();
+        for (final (index, id) in attachments.indexed) {
+          if (cancel.cancelled) throw const MembershipFailure('cancelled');
+          final remote = await jobs.uploadDraft(seed.id, id, cancel, (value) {
+            if (mounted) {
+              setState(() => progress = (index + value) / attachments.length);
+            }
+          });
+          photos.add(remote);
+        }
+      }
       pending ??= draftId();
       dirty = true;
       await _save();
+      if (cancel.cancelled) throw const MembershipFailure('cancelled');
       final editing = seed.postId != null;
       await api.write(
         editing ? '/v1/posts/${seed.postId}' : '/v1/posts',
@@ -145,6 +196,7 @@ class _ForumComposerState extends State<ForumComposer>
         body: {
           'body': text,
           'tags': tags,
+          if (api.hasPhotos) 'attachments': photos,
           if (!editing) 'quoteId': seed.quoteId,
         },
       );
@@ -166,7 +218,13 @@ class _ForumComposerState extends State<ForumComposer>
         );
       }
     } finally {
-      if (mounted) setState(() => busy = false);
+      if (mounted) {
+        setState(() {
+          busy = false;
+          progress = null;
+          transfer = null;
+        });
+      }
     }
   }
 
@@ -187,6 +245,7 @@ class _ForumComposerState extends State<ForumComposer>
       pending = next.requestKey;
       body.text = next.body;
       tags = [...next.tags];
+      attachments = [...next.attachments];
       dirty = false;
       status = null;
       _quote();
@@ -274,7 +333,35 @@ class _ForumComposerState extends State<ForumComposer>
               ],
             ),
             const SizedBox(height: Space.gap),
-            const Text('写真・コレクションの添付は準備中です。'),
+            if (api.hasPhotos) ...[
+              OutlinedButton(
+                onPressed: locked ? null : _selectPhotos,
+                child: Text('写真を追加（${attachments.length}/10）'),
+              ),
+              if (attachments.isNotEmpty)
+                SizedBox(
+                  height: 74,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: attachments.length,
+                    itemBuilder: (context, index) {
+                      final id = attachments[index];
+                      return SizedBox(
+                        width: 74,
+                        child: isRemotePhoto(id) && seed.postId != null
+                            ? RemotePhoto(
+                                api,
+                                PhotoPointer('post', seed.postId!, id),
+                                fit: BoxFit.cover,
+                              )
+                            : LocalPhotoPreview(PhotoJobs(api), seed.id, id),
+                      );
+                    },
+                  ),
+                ),
+              const Text('コレクションは準備中です。'),
+            ] else
+              const Text('写真・コレクションの添付は準備中です。'),
             if (pending != null && !busy)
               const Text('送信結果を確認するため、同じ内容で再試行できます。'),
             if (status case final message?)
@@ -299,7 +386,17 @@ class _ForumComposerState extends State<ForumComposer>
                 ),
               ],
             ),
-            if (busy) const LinearProgressIndicator(),
+            if (busy) ...[
+              LinearProgressIndicator(
+                value: progress,
+                semanticsLabel: '写真と投稿の送信',
+              ),
+              if (attachments.isNotEmpty)
+                TextButton(
+                  onPressed: () => transfer?.cancel(),
+                  child: const Text('アップロードを中止'),
+                ),
+            ],
           ],
         ),
       ),

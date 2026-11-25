@@ -24,16 +24,6 @@ const owner = '06800000-0000-4000-8000-000000000011';
 const entry = '06800000-0000-4000-8000-000000000012';
 const captureKey = ValueKey('forum-preview');
 
-class Keys implements DraftKeys {
-  final values = <String, String>{};
-  @override
-  Future<String?> read(String owner) async => values[owner];
-  @override
-  Future<void> write(String owner, String key) async => values[owner] = key;
-  @override
-  Future<void> remove(String owner) async => values.remove(owner);
-}
-
 class ForumFixture extends Fixture {
   final posts = <Json>[];
   final submitted = <String>[];

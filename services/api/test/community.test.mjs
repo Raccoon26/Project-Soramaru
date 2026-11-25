@@ -13,7 +13,7 @@ const requestKey=()=>uuid().replaceAll('-','');
 const time=1_795_578_000_000;
 const error=(status,code)=>e=>e.status===status&&e.code===code;
 
-async function check(action,version=7) {
+async function check(action,version=8) {
   const machine=simulator();
   try {
     const DB=await machine.getD1Database('DB');
@@ -27,7 +27,7 @@ async function check(action,version=7) {
       const issued=await members.issue(identity,globalThis.Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('base64url'),'Fixture','other');
       const get=()=>members.context(identity,issued.sessionToken);
       await members.accept(await get(),{version:policyVersion,documents:policyDocuments.map(item=>item.kind)});
-      await members.edit(await get(),{nickname:label},1);
+      if(version>=8) await members.edit(await get(),{nickname:label},1);
       return {identity,issued,ctx:await get(),get};
     }
     await action({DB,env,key,make,path});
@@ -55,7 +55,7 @@ test('v6 migration preserves post, quote, comments, tag relation, reactions and 
     query(DB,"UPDATE media_reservations SET state='approved' WHERE id=?",media),
     query(DB,'INSERT INTO post_media VALUES (?,?,0)',id,media),
   ]);
-  assert.equal(await migrate(DB,path),7);
+  assert.equal(await migrate(DB,path.slice(0,7)),7);
   assert.equal((await query(DB,'SELECT body FROM posts WHERE id=?',id).first()).body,'以前の投稿');
   assert.equal((await query(DB,'SELECT quote_post_id FROM posts WHERE id=?',other).first()).quote_post_id,id);
   for(const table of ['comments','reactions','post_tags','post_media']) {

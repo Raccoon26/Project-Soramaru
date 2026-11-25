@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../community/community.dart';
 import '../community/drafts.dart';
+import '../photos/selection.dart';
 import '../membership/controller.dart';
 import '../preview/pages.dart' show ComposeDraft;
 import '../ui/controls.dart';
@@ -153,6 +154,8 @@ class NavigationController {
   final MembershipController? realMembership;
   final Community? community;
   Draft? composing;
+  SelectionRequest? selectingPhotos;
+  int albumPhotoIndex = 0;
   final _rootKey = GlobalKey<NavigatorState>();
   late final GoRouter router;
   StatefulNavigationShell? _shell;
@@ -304,7 +307,12 @@ class NavigationController {
         return Screen.invalidLink.pattern;
       }
       if (community != null &&
-          [Screen.post, Screen.user, Screen.tagged].contains(screen)) {
+          [
+            Screen.post,
+            Screen.user,
+            Screen.tagged,
+            if (community?.hasPhotos == true) ...[Screen.album, Screen.photo],
+          ].contains(screen)) {
         return id.length == 36 ? null : Screen.unavailable.pattern;
       }
       final resource = _resources.statusOf(screen, id);

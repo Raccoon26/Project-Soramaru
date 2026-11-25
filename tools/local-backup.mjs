@@ -14,7 +14,7 @@ const expectedTables = ['schema_migrations',
   'posts','comments','tags','post_tags','blocks','reactions','badge_catalog','badge_awards','applied_badges',
   'media_capacity','media_owner_capacity','media_reservations','media_objects','post_media','content_items',
   'usage_windows','feature_flags','rate_limits','scheduled_jobs','outbox','idempotency_keys','audit_events',
-  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports'];
+  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports','photo_albums','photo_album_items'];
 const crypt = globalThis.crypto;
 const buffer = globalThis.Buffer;
 

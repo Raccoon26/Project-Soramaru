@@ -83,3 +83,10 @@ Android 에뮬레이터에서는 `flutter run --dart-define=DEV_API_ORIGIN=http:
 ## DEV-05 팬 게시판
 
 팬 게시판 개발 및 검증은 [팬 게시판 가이드](FAN_COMMUNITY_GUIDE.md), [게시물 수명](POST_LIFECYCLE_GUIDE.md), [기기 임시 글](LOCAL_DRAFT_GUIDE.md), [신고·차단](MODERATION_GUIDE.md)을 사용한다.
+
+
+## DEV-06 사진 개발
+
+[사진 업로드](MEDIA_UPLOAD_GUIDE.md) · [이미지 처리](IMAGE_PROCESSING_GUIDE.md) · [사진 권한](MEDIA_ACCESS_GUIDE.md) · [GALLERY](GALLERY_GUIDE.md) · [수명주기와 저장 비용](MEDIA_LIFECYCLE_GUIDE.md)
+
+로컬에서 `npm run db:migrate`, `node tools/photo-fixtures.mjs`를 실행하고 개발용 Firebase Auth Emulator와 Worker에 연결한다. 도구와 합성 데이터만으로 검증하며 운영 계정·버킷 또는 결제 활성화 승인이 별도로 필요하다.

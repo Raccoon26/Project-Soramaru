@@ -6,6 +6,9 @@ import '../community/forum.dart';
 import '../membership/controller.dart';
 import '../membership/screens.dart';
 import '../network/api_notice.dart';
+import '../photos/gallery.dart';
+import '../photos/photo_view.dart';
+import '../photos/selection.dart';
 import '../preview/home.dart'
     show AdaptiveTiles, FeedPreview, SectionTitle, sampleFeedPosts;
 import '../preview/pages.dart' show ComposePreview, PlayerPreview, StateCatalog;
@@ -35,6 +38,14 @@ class NavigationPage extends StatelessWidget {
     final n = navigation;
     final id = resource;
     return switch (screen) {
+      Screen.pickPhoto
+          when n.community?.hasPhotos == true && n.selectingPhotos != null =>
+        PhotoSelection(n.community!, n.selectingPhotos!),
+      Screen.photo when n.community?.hasPhotos == true => GalleryAlbum(
+        n,
+        id!,
+        viewer: true,
+      ),
       Screen.compose when n.community != null => ForumComposer(n, n.composing),
       Screen.compose => ComposePreview(
         onExit: n.back,
@@ -69,6 +80,10 @@ class NavigationPage extends StatelessWidget {
         n.open<void>(Destination(screen, resource));
     if (n.community != null) {
       switch (screen) {
+        case Screen.gallery when n.community!.hasPhotos:
+          return GalleryPage(n);
+        case Screen.album when n.community!.hasPhotos:
+          return GalleryAlbum(n, id!);
         case Screen.feed:
           return ForumList(n, root: true);
         case Screen.post:
@@ -343,13 +358,32 @@ class NavigationPage extends StatelessWidget {
                   .inDays
                   .clamp(0, 365000);
               return _list([
-                const AvatarMark(size: 50),
+                if (n.community case final api?
+                    when api.hasPhotos && profile['avatarMediaId'] is String)
+                  SizedBox(
+                    width: 50,
+                    height: 50,
+                    child: ClipOval(
+                      child: RemotePhoto(
+                        api,
+                        PhotoPointer(
+                          'profile',
+                          profile['id'] as String,
+                          profile['avatarMediaId'] as String,
+                        ),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  )
+                else
+                  const AvatarMark(size: 50),
                 Text(profile['nickname'] as String, style: TypeStyles.heading),
                 Text(profile['biography'] as String),
                 Text("会員番号　${profile['memberNumber']}"),
                 Text('入会日　${Ja.date(joined)}'),
                 Text('会員期間　$days日'),
                 _row(Screen.editProfile),
+                _row(Screen.activity),
                 _row(Screen.devices),
               ]);
             },
@@ -390,7 +424,9 @@ class NavigationPage extends StatelessWidget {
         ]);
       case Screen.editProfile:
         if (membership != null) {
-          return _list([MemberEditor(membership, onSaved: n.back)]);
+          return _list([
+            MemberEditor(membership, onSaved: n.back, photoApi: n.community),
+          ]);
         }
         return _ProfileEditor(navigation: n);
       case Screen.membership:

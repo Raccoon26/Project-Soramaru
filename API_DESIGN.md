@@ -57,3 +57,18 @@ DEV-02는 기존 Workers 상태 API와 공용 타입을 그대로 사용한다. 
 ## DEV-05 팬 게시판
 
 보호 경로는 `GET/POST /v1/posts`, `GET/PATCH/DELETE /v1/posts/:id`, `GET /v1/members/:id`, `POST /v1/reports`, `PUT /v1/me/blocks/:memberId`, `GET /v1/tags/popular`다. 목록은 `category`, `author`, `tag`, `cursor`, `limit`만 받으며 20/50 한도를 적용한다. 인기 태그와 즐겨찾기는 준비 상태이며 공유 링크는 승인된 도메인이 필요하다. [글 수명](POST_LIFECYCLE_GUIDE.md)
+
+
+## DEV-06 사진 API
+
+| 경로 | 요청 및 응답 |
+|---|---|
+| `POST /v1/uploads` | `Idempotency-Key`, JSON `purpose, bytes, mime, sha256, variantOf?`. 201 예약 상태. |
+| `PUT /v1/uploads/:id/body` | `image/jpeg` 스트림, 예약 크기와 해시 검사, 200 격리 상태. |
+| `POST /v1/uploads/:id/complete` | 소유자 요청으로 검역 및 승인, 200 상태. |
+| `GET`, `DELETE /v1/uploads/:id` | 소유자 상태 200, 안전 취소 204. |
+| `POST /v1/media/grants` | `parent, parentId, ids, variant, mode?`, 부모당 최대 20개, 순서 유지. |
+| `GET /v1/media/:id` | `parent, parent_id, variant`, 인증된 JPEG 200/206과 private no-store. |
+| `GET /v1/gallery`, `GET /v1/gallery/:id` | 공식 앨범 페이지와 정렬된 사진 ID. |
+
+`POST/PATCH /v1/posts`의 선택적 `attachments`는 최대 10개의 순서 있는 게시용 ID다. 수정에서 필드를 생략하면 기존 사진을 유지한다. `PATCH /v1/me`의 `avatarMediaId`는 목적·소유권·프로필 버전을 적용하며 null은 제거다. 동시 변경·해시 충돌 409, 초과 413, 형식 오류 415, 부적절한 Range 416, 접근 실패 401/403/404, 레이트 429, 비용 또는 점검 503을 사용한다. [권한과 캐시](MEDIA_ACCESS_GUIDE.md)

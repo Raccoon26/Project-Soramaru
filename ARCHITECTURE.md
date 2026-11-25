@@ -59,3 +59,8 @@ Firebase의 신원·현재 revoked 기준, D1의 회원·정책·기기 세션·
 ## DEV-05 팬 게시판
 
 팬 게시판은 기존 두 자격 증명과 active 단계, 최신 약관을 사용한다. Worker의 조건부 D1 변경에서 세션·가시성·소유권을 다시 검사한다. Flutter는 보호 API와 암호화된 로컬 Drift를 별도 Flutter Riverpod 범위에서 사용한다.
+
+
+## DEV-06 사진 처리와 문맥 권한
+
+Flutter 선택기 → 제한된 변환 및 암호화 초안 → D1 예약과 R2 격리 → 승인 JPEG → 게시물·프로필·공식 앨범 참조가 사진의 정상 경로다. 서버가 두 자격 증명과 부모의 최신 가시성을 확인한 뒤 변형을 제공한다. 각 파일의 예약 ID는 객체 버전처럼 동작한다. [이미지 처리](IMAGE_PROCESSING_GUIDE.md) · [열람 권한](MEDIA_ACCESS_GUIDE.md)

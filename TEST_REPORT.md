@@ -119,3 +119,23 @@ Firebase CLI 실행 범위는 로컬 및 CI의 demo 프로젝트 Auth 서비스�
 | [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq) | uuid 9.0.1 및 gaxios 계열. 버퍼를 받는 일부 버전 생성 호출의 경계 처리. |
 
 실제 D1 시험으로 혼합 SQL 바인딩과 신고 서브쿼리 바인딩 문제를 수정했다. workerd가 본문 없는 PUT을 빈 스트림으로 전달하는 경우를 허용하고 실제 바이트가 있는 요청은 거부한다. 조회에는 최신순 인덱스를 지정했다. 조건부 갱신이 0행일 때 멱등성 성공과 부수 기록이 남지 않도록 전체 배치를 종료한다. [운영 범위](OPERATION_GUIDE.md) · [Firebase CLI 릴리스](https://github.com/firebase/firebase-tools/releases/tag/v15.37.0)
+
+
+## DEV-06 사진과 공식 갤러리
+
+| 항목 | 결과와 범위 |
+|---|---|
+| Flutter | 134건 중 신규 19건. 기존 Golden과 내비게이션·회원·게시판 회귀, 320/390/430/768dp × 100/130/200%, 암호화 사진 초안, 첨부 상한·순서, 뷰어 확대 상태, 갤러리와 프로필 화면. |
+| API | 43건 중 신규 5건. 실제 로컬 D1 v7→v8과 빈 DB, 기존 데이터 및 장부, 썸네일 인덱스, 격리·승인·상태·취소·수명주기와 실제 R2 바이트. |
+| 로컬 통합 | `npm run test:membership`는 실제 Firebase Auth Emulator·workerd·D1·R2, 일반 회원 두 명과 합성 공식 앨범에서 업로드, 타 회원 열람, 차단 및 삭제 후 거부를 통과했다. opt-in Flutter Gateway 시험에서 1,920×1,440px JPEG·썸네일의 실제 업로드·검역·게시물 연결·바이트 재열람도 통과했다. |
+| 검역·개인정보 | JPEG 세그먼트, MIME·스트림 길이·SHA·해상도·디코딩, 후행·절단·EXIF GPS, 허용된 Range, 권한 철회·격리·소유자·부모 문맥, 누락 객체 역대사를 검증했다. 이미지 픽셀의 개인정보 및 네이티브 HEIC 처리는 출시에 앞서 확인한다. |
+| 비용과 복원 | DEV-05 목록 12회 읽기 1,159행·쓰기 31행 유지. 별도 혼합 사진 경로 읽기 4,124행·쓰기 317행, R2 PUT 9회, GET 6회, HEAD 4회, 무료 DELETE 5회. 검사 도구 호출을 포함하는 로컬 수치다. v8 암호화 논리 백업을 별도 로컬 DB로 복원해 데이터와 스키마를 비교했다. |
+| 요구사항·권리 | 125개 ID, 53개 화면 참조, 총 원본 54개 SHA-256 일치. 앱과 서버 로그는 경로나 비밀을 노출하지 않도록 시험했다. 로컬 생성 미디어·백업·원본은 Git에서 제외한다. |
+| 의존성 | npm 루트 감사 0건, Pub OSV 94개 조회 0건. Firebase CLI 15.37.0은 현재 호환 수정 릴리스가 확인되지 않았다. CLI 감사의 중간 14개 항목은 glob, minimatch, uuid, @opentelemetry/core 등 개발 의존성 경로다. 로컬/CI loopback 합성 데이터만 사용하고 앱·Worker 번들에서 제외한다. |
+| Android 빌드 | Flutter 번들과 ARM64 debug APK를 생성했다. SDK 36, 최저 API 24, APK Signature Scheme v2 서명 검증 통과. 의도적으로 개발 플래그를 넘긴 ARM64 release 빌드에서 양성 대조 7개 개발 문자열이 제거됐고 평문 HTTP 및 백업 설정은 꺼져 있었다. |
+| Android CI | 공식 Maven Central HTTP 429 로그에만 15초·30초 백오프를 적용한다. 테스트, 서명 및 다른 Gradle 오류는 해당 재시도 대상에서 제외된다. |
+| 남은 검증 | iOS 빌드, 실제 카메라·HEIC 및 제한 사진 접근·OS 저장소, 실기기 프레임·메모리·배터리, 운영 Cloudflare CPU·청구, 실제 R2 직접 서명 인프라와 권리 승인. |
+
+API 재현은 `npm run lint`, `npm test`, `npm run test:membership`, `npm run db:migrate`, `npm run smoke:api`, `npm run build:api`, `npm run check:repo`를 사용한다. Flutter에서 `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-pub`, `flutter test --no-pub`, `flutter build bundle --no-pub`와 Android ARM64 APK 빌드를 실행한다. 로컬 통합은 수동 Emulator와 Worker를 켠 뒤 `flutter test --no-pub --dart-define=DEV04_LIVE=true test/membership_test.dart --plain-name 'Dart gateway connects to the real local emulators'`를 실행한다. 대표 프리뷰는 `DEV06_PREVIEW=true`로 로컬 `.local/dev-06-preview/`에 기록한다.
+
+Firebase CLI의 직접 도구 릴리스와 간접 알림을 분리했다. 감사 알림의 직접 대상은 전부 간접 설치된 @opentelemetry/core <2.8.0, glob 9.0.0~14.0.1, minimatch 7.0.0~11.0.0, uuid <11.1.1이다. 나머지 10개는 해당 패키지에 도달하는 상위 의존성 경로 항목이다. 이 검사는 운영 서비스에서의 악용 가능 여부를 확정하지 않는다. 벤더 수정 또는 호환 릴리스 출시에 맞춰 재검토한다. 이미지 관련 잠금 의존성은 Flutter image_picker BSD-3-Clause, image MIT, jpeg-js BSD-3-Clause다. jpeg-js 0.4.4는 2022 릴리스이며 검역의 해상도·메모리 상한과 재검토 항목을 유지한다. 네이티브 변환은 OS ImageDecoder/ImageIO를 사용하며 외부 사진 서비스에 전송하지 않는다. [glob](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) · [minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249) · [uuid](https://github.com/advisories/GHSA-w5hq-g745-h8pq) · [OpenTelemetry](https://github.com/advisories/GHSA-8988-4f7v-96qf)

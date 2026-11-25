@@ -41,3 +41,8 @@ DEV-04는 Firebase 검증기와 서버 세션 발급, DEV-05~08은 페이지/차
 ## DEV-05 팬 게시판
 
 기존 `npm run test:membership`는 실제 Firebase Auth Emulator·workerd·D1에서 두 합성 회원으로 게시물을 작성하고 인용·신고·차단·삭제까지 실행한다. `node --test services/api/test/community.test.mjs`로 v6 업그레이드, 합성 공식 정체성, 경쟁과 비용을 확인한다.
+
+
+## DEV-06 로컬 사진
+
+`npm run db:migrate` → `node tools/photo-fixtures.mjs`로 합성 공식 앨범을 준비한다. Firebase Auth Emulator는 `npm run auth:emulator`, Worker는 `npm run auth:worker`로 각각 127.0.0.1 에서 실행한다. `npm run test:membership`는 자체 Emulator를 실행하므로 수동 Emulator가 종료된 상태에서 실행한다. [개발 절차](MEDIA_UPLOAD_GUIDE.md)
