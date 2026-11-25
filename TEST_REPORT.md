@@ -94,3 +94,28 @@
 테스트에서 Workerd가 거부하는 Fetch redirect 옵션을 수정했다. 일반 프로필 쓰기와 세션 철회를 같은 제한으로 계산하던 문제는 철회 전용 제한으로 해결했다. Flutter 통합 시험의 HTTP 모의 응답을 전용 루프백 연결로 분리해 실제 Firebase와 D1을 사용하도록 교정했다. 철회 이력이 많을 때 활성 기기가 목록에서 사라지던 경계 사례를 고쳐 현재 기기와 나머지 활성 기기를 먼저 표시한다.
 
 재현은 [에뮬레이터 가이드](FIREBASE_EMULATOR_GUIDE.md), [비용 통제](COST_CONTROL_GUIDE.md), [DEV-04 PR 및 CI](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-04-membership-auth)에서 확인한다.
+
+## DEV-05 팬 게시판
+
+| 검사 | 결과와 근거 |
+|---|---|
+| 기준 회귀 | 시작 시 DEV-04 Flutter 99건, API 33건을 재실행했다. 신규 Flutter 16건으로 전체 115건, 신규 API 5건으로 전체 38건이다. 기존 Golden, 5개 탭, 58개 화면 경로와 9종 링크를 유지했다. |
+| 일본어 UI | 320·390·430·768dp × 100·130·200%에서 폼과 키보드 인셋을 점검했다. 320dp/200%에서 장문 10,000자를 입력했다. 기존 로컬 F01/F03 두 참조는 1284×2637px이며 흰 영역과 행 구분을 비교했다. 합성 PNG는 `.local/dev-05-preview/`에 저장한다. |
+| 데이터와 HTTP | Unicode 16 공통 말뭉치와 9,999/10,000/10,001 경계, 태그 10/11개, 정규화 중복, 조건부 수정·삭제 경합, 멱등 재전송을 실제 D1에서 확인한다. 워크로드는 2,200개 게시물, 커서 및 최신순 인덱스를 사용한다. |
+| 통합 | Firebase Auth Emulator·workerd·D1에서 일반 합성 회원 2명으로 작성·인용·신고·차단·삭제를 실행했다. D1 시험은 합성 공식 아티스트와 고정 공지·일반 구분을 검증한다. 계정 변경, 버전 충돌, 철회 응답은 이전 통합과 함께 검사했다. Flutter는 실제 로컬 서비스에 연결해 가입·인증, 9,999자·10,000자 작성과 10,001자 거부, 목록 조회를 검증했다. |
+| 로컬 초안 | 실제 Drift SQLite v1→v2 업그레이드와 재열기, AES-GCM 암호문, 계정 분리, 일반 로그아웃 유지와 확정 만료 시 삭제를 검사한다. 작성 화면의 600ms 디바운스는 마지막 완료 저장 이후 강제 종료 손실 여지가 있다. |
+| 성능·비용 | 동일 목록 조회 12회에서 읽기 27,559→1,159행 및 쓰기 31행. DEV-04 보호 상태 조회 391/31행과 별도로 집계했다. 100/500/1,000/5,000 MAU와 7가지 부하 추정은 비용 문서에 둔다. |
+| 공급망 | 프로젝트 npm 감사와 Pub 잠금 항목 74개의 OSV 조회는 각각 보고 0건. 독립 개발 도구 `firebase-tools@15.37.0` 감사는 중간 등급 항목 14개다. 실제 권고 4건이 아래 간접 의존성을 통해 전파된다. |
+| 빌드 | Flutter 번들과 ARM64 대상 Android 디버그 APK, APK Signature Scheme v2를 검증했다. 개발 플래그를 켠 릴리스에서 평문과 백업 금지 및 개발 인증·초안 경로의 대표 문자열 여섯 개 비포함을 확인했다. |
+| 후속 | Windows 환경의 iOS 빌드, 실제 기기 백업·보안 저장소, 물리 기기 프레임·배터리, 운영 CPU와 공급자 청구량, 실제 공유 링크는 미검증이다. |
+
+Firebase CLI 실행 범위는 로컬 및 CI의 demo 프로젝트 Auth 서비스다. 현재 npm 최신 상위 버전은 15.37.0이며 npm의 제안은 13.11.2로 되돌리는 호환성 변경이다. 의존성 강제 치환은 적용하지 않았다. 도구는 loopback, 합성 입력만 사용하며 Worker와 앱 번들에 포함되지 않는다. 다음 Firebase CLI 릴리스 또는 DEV-06에서 업스트림 변경과 에뮬레이터 E2E를 다시 확인한다.
+
+| 권고 | 설치된 간접 의존성과 영향 조건 |
+|---|---|
+| [GHSA-8988-4f7v-96qf](https://github.com/advisories/GHSA-8988-4f7v-96qf) | @opentelemetry/core 1.30.1 및 Pub/Sub 경로. 외부 W3C Baggage를 파싱하는 환경의 메모리 과다 할당. |
+| [GHSA-3g3m-2fjr-6pw4](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) | glob 10.5.0 및 archiver·exegesis·rimraf 경로. 취소 이후 파일 탐색이 이어지는 조건. |
+| [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249) | minimatch 9.0.9의 glob 경로. 신뢰할 수 없는 glob 입력의 자원 사용량 증가. |
+| [GHSA-w5hq-g745-h8pq](https://github.com/advisories/GHSA-w5hq-g745-h8pq) | uuid 9.0.1 및 gaxios 계열. 버퍼를 받는 일부 버전 생성 호출의 경계 처리. |
+
+실제 D1 시험으로 혼합 SQL 바인딩과 신고 서브쿼리 바인딩 문제를 수정했다. workerd가 본문 없는 PUT을 빈 스트림으로 전달하는 경우를 허용하고 실제 바이트가 있는 요청은 거부한다. 조회에는 최신순 인덱스를 지정했다. 조건부 갱신이 0행일 때 멱등성 성공과 부수 기록이 남지 않도록 전체 배치를 종료한다. [운영 범위](OPERATION_GUIDE.md) · [Firebase CLI 릴리스](https://github.com/firebase/firebase-tools/releases/tag/v15.37.0)

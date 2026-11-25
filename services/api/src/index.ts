@@ -14,7 +14,9 @@ import { handleMembership,membershipTarget,ReadReservations } from './membership
 import type { MembershipDependencies } from './membership-api.ts';
 import { observeDatabase } from './membership-metrics.ts';
 
-type Operation = 'health' | 'readiness' | 'session' | 'membership' | 'unknown';
+import { communityTarget,handleCommunity } from './community-api.ts';
+
+type Operation = 'health' | 'readiness' | 'session' | 'community' | 'membership' | 'unknown';
 interface Event {
   requestId: string;
   operation: Operation;
@@ -63,12 +65,14 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
       return send(failure(new HttpError(400,'invalid_request'),id));
     }
     const target=membership?membershipTarget(url.pathname):null;
-    if (target&&membership) {
-      operation='membership';
-      if (!target.methods.split(', ').includes(request.method)) {
-        return send(failure(new HttpError(405,'method_not_allowed'),id,target.methods));
+    const community=membership?communityTarget(url.pathname):null;
+    const route=target??community;
+    if (route&&membership) {
+      operation=community?'community':'membership';
+      if (!route.methods.split(', ').includes(request.method)) {
+        return send(failure(new HttpError(405,'method_not_allowed'),id,route.methods));
       }
-      if (url.search||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
+      if ((url.search&&!community)||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
         return send(failure(new HttpError(400,'invalid_request'),id));
       }
       const now=clock();
@@ -77,7 +81,11 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
         try {
           const env=checkEnvironment(binding);
           const observed=observeDatabase(env.DB,value=>meta.push(value));
-          const result=await handleMembership(request,target,{...env,DB:observed},membership,now,readReservations,network()??'unattributed');
+          const activeEnv={...env,DB:observed};
+          const scope=network()??'unattributed';
+          const result=community
+            ? await handleCommunity(request,url,community,activeEnv,membership,now,readReservations,scope)
+            : await handleMembership(request,target!,activeEnv,membership,now,readReservations,scope);
           return send(result.status===204
             ? new Response(null,{status:204,headers:{'Cache-Control':'no-store','X-Request-Id':id}})
             : jsonResponse(result.data,id,result.status));

@@ -9,6 +9,7 @@ export type ApiErrorCode =
   | 'payload_too_large' | 'unsupported_media_type' | 'rate_limited'
   | 'cost_limited' | 'maintenance' | 'unavailable' | 'internal_error'
   | 'account_suspended' | 'account_deleting' | 'recent_auth_required'
+  | 'invalid_post_length' | 'content_rejected'
   | 'device_limit' | 'email_unverified' | 'policy_changed' | 'nickname_reserved';
 
 export type ApiErrorResponse = {

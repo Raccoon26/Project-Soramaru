@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../community/community.dart';
+import '../community/drafts.dart';
 import '../membership/controller.dart';
 import '../preview/pages.dart' show ComposeDraft;
 import '../ui/controls.dart';
@@ -63,12 +65,16 @@ final navigationProvider = Provider<NavigationController>((ref) {
     demoSessionProvider.select((value) => value.generation),
   );
   final member = ref.read(membershipProvider);
+  final drafts = ref.read(draftRepositoryProvider);
   final result = NavigationController(
     session: () => ref.read(demoSessionProvider),
     resources: ref.read(navigationResourcesProvider),
     now: ref.read(navigationClockProvider),
     generation: generation,
     realMembership: member,
+    community: member == null || drafts == null
+        ? null
+        : Community(member, drafts),
 
     initialExternalLink: generation == 0
         ? ref.read(initialExternalLinkProvider)
@@ -94,6 +100,7 @@ class NavigationController {
     required this.generation,
     String? initialExternalLink,
     this.realMembership,
+    this.community,
   }) {
     final initial = initialExternalLink == null
         ? (realMembership == null ? Screen.feed.pattern : Screen.login.pattern)
@@ -144,6 +151,8 @@ class NavigationController {
       ? 'soramaru-navigation-demo'
       : null;
   final MembershipController? realMembership;
+  final Community? community;
+  Draft? composing;
   final _rootKey = GlobalKey<NavigatorState>();
   late final GoRouter router;
   StatefulNavigationShell? _shell;
@@ -169,6 +178,7 @@ class NavigationController {
   String get currentPath => router.state.uri.path;
 
   void dispose() {
+    community?.dispose();
     _disposed = true;
     router.dispose();
     draft = null;
@@ -293,6 +303,10 @@ class NavigationController {
       if (id == null || !resourceId.hasMatch(id)) {
         return Screen.invalidLink.pattern;
       }
+      if (community != null &&
+          [Screen.post, Screen.user, Screen.tagged].contains(screen)) {
+        return id.length == 36 ? null : Screen.unavailable.pattern;
+      }
       final resource = _resources.statusOf(screen, id);
       if (resource != ResourceStatus.found) {
         unavailableReason = switch (resource) {
@@ -308,7 +322,10 @@ class NavigationController {
 
   String _externalLocation(String raw) {
     _pending = null;
-    final destination = DeepLinks(_resources).parse(raw);
+    final destination = DeepLinks(
+      _resources,
+      community: community != null,
+    ).parse(raw);
     if (destination == null) return Screen.invalidLink.pattern;
     final blocked = _blocked(destination.screen, destination.id);
     if (blocked == Screen.login.pattern ||
@@ -335,7 +352,10 @@ class NavigationController {
     if (location == currentPath) {
       router.refresh();
     } else {
-      final destination = DeepLinks(_resources).parse(raw);
+      final destination = DeepLinks(
+        _resources,
+        community: community != null,
+      ).parse(raw);
       if (destination != null && location == destination.location) {
         open(destination);
       } else {
@@ -459,7 +479,9 @@ class _TabShell extends StatelessWidget {
     body: shell,
     bottomNavigationBar: CommunityBar(
       selected: CommunityTab.values[shell.currentIndex],
-      unread: sampleNotices.where((item) => item.unread).length,
+      unread: navigation.community == null
+          ? sampleNotices.where((item) => item.unread).length
+          : 0,
       onSelect: navigation.select,
     ),
   );

@@ -55,3 +55,7 @@ D1이 선택 작업 예산, 기능 플래그, 예약 잔여량, 레이트와 작
 ## DEV-04 인증 경계
 
 Firebase의 신원·현재 revoked 기준, D1의 회원·정책·기기 세션·역할을 함께 적용한다. 모바일 Firebase 갱신·저장은 디버그 에뮬레이터 REST 및 OS 보안 저장소로 분리했다. 일반 배포 입력에는 로컬 인증 어댑터가 없고, 운영용 Web Crypto 검증은 실제 프로젝트 승인 후 연결한다. [인증 가이드](AUTHENTICATION_GUIDE.md)
+
+## DEV-05 팬 게시판
+
+팬 게시판은 기존 두 자격 증명과 active 단계, 최신 약관을 사용한다. Worker의 조건부 D1 변경에서 세션·가시성·소유권을 다시 검사한다. Flutter는 보호 API와 암호화된 로컬 Drift를 별도 Flutter Riverpod 범위에서 사용한다.

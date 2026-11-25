@@ -50,7 +50,7 @@ test('v4 to v6 rollback and upgrade preserves members, legacy sessions and the o
   assert.deepEqual((await query(DB,'SELECT * FROM schema_migrations ORDER BY version').all()).results,old.results);
   const after=await query(DB,"SELECT sql FROM sqlite_schema WHERE name='policy_acceptances'").first();
   assert.equal(after,null);
-  assert.equal(await migrate(DB),6);
+  assert.equal(await migrate(DB,path.slice(0,6)),6);
   assert.deepEqual(await query(DB,'SELECT * FROM members WHERE id=?',demoMember).first(),oldMember);
   const device=await query(DB,'SELECT device_os,absolute_expires_at FROM member_sessions WHERE id=?',s).first();
   assert.deepEqual(device,{device_os:'other',absolute_expires_at:null});

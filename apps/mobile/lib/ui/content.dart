@@ -233,6 +233,9 @@ class PostCard extends StatelessWidget {
     super.key,
     this.onOpen,
     this.onLike,
+    this.onAuthor,
+    this.officialLabel = '公式サンプル',
+    this.showReactionCounts = true,
     this.onComment,
     this.onShare,
     this.onMore,
@@ -240,6 +243,9 @@ class PostCard extends StatelessWidget {
   final FeedPost post;
   final VoidCallback? onOpen;
   final VoidCallback? onLike;
+  final VoidCallback? onAuthor;
+  final String officialLabel;
+  final bool showReactionCounts;
   final VoidCallback? onComment;
   final VoidCallback? onShare;
   final VoidCallback? onMore;
@@ -365,19 +371,21 @@ class PostCard extends StatelessWidget {
               Wrap(
                 spacing: Space.sm,
                 children: [
-                  _Reaction(
-                    icon: post.liked ? Icons.favorite : Icons.favorite_border,
-                    label: 'いいね',
-                    count: post.likes,
-                    selected: post.liked,
-                    onPressed: onLike,
-                  ),
-                  _Reaction(
-                    icon: Icons.chat_bubble_outline,
-                    label: 'コメント',
-                    count: post.comments,
-                    onPressed: onComment,
-                  ),
+                  if (showReactionCounts)
+                    _Reaction(
+                      icon: post.liked ? Icons.favorite : Icons.favorite_border,
+                      label: 'いいね',
+                      count: post.likes,
+                      selected: post.liked,
+                      onPressed: onLike,
+                    ),
+                  if (showReactionCounts)
+                    _Reaction(
+                      icon: Icons.chat_bubble_outline,
+                      label: 'コメント',
+                      count: post.comments,
+                      onPressed: onComment,
+                    ),
                   IconAction(
                     Icons.ios_share_outlined,
                     '共有',

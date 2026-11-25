@@ -53,3 +53,7 @@ DEV-02는 기존 Workers 상태 API와 공용 타입을 그대로 사용한다. 
 | POST /v1/auth/email | 메일 확인·재설정의 제한된 요청 |
 
 일반 보호 요청은 `Authorization: Bearer` Firebase ID 토큰과 `X-App-Session`을 모두 사용한다. `POST /v1/sessions`는 발급 전이므로 Firebase만 사용한다. DEV-03 테스트 주입용 단일 Bearer 계약은 이전 회귀를 위해 격리했다. [세션 관리](SESSION_MANAGEMENT_GUIDE.md)
+
+## DEV-05 팬 게시판
+
+보호 경로는 `GET/POST /v1/posts`, `GET/PATCH/DELETE /v1/posts/:id`, `GET /v1/members/:id`, `POST /v1/reports`, `PUT /v1/me/blocks/:memberId`, `GET /v1/tags/popular`다. 목록은 `category`, `author`, `tag`, `cursor`, `limit`만 받으며 20/50 한도를 적용한다. 인기 태그와 즐겨찾기는 준비 상태이며 공유 링크는 승인된 도메인이 필요하다. [글 수명](POST_LIFECYCLE_GUIDE.md)

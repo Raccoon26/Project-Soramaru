@@ -54,10 +54,12 @@ export class ReadReservations {
   }
 }
 
-async function admit(env: Env,now:number,scopes:readonly LimitScope[],units:number,operation:'read'|'write'|'essential'|'registration') {
+export async function admit(env: Env,now:number,scopes:readonly LimitScope[],units:number,
+  operation:'read'|'write'|'essential'|'registration',
+  options:{rowsPerRequest?:number;extraWrites?:number;flags?:Parameters<Budget['admit']>[3]}={}) {
   const gate=await new Budget(env.DB).admit(operation==='essential'?'essential':operation==='read'?'standard':'optional-write',{
-    requests:units,d1Reads:15*units,d1Writes:scopes.length*2+(operation==='read'?0:8),d1IndexWrites:scopes.length,
-  },now,operation==='registration'?['registration_enabled']:[]);
+    requests:units,d1Reads:(options.rowsPerRequest??15)*units,d1Writes:scopes.length*2+(options.extraWrites??(operation==='read'?0:8)),d1IndexWrites:scopes.length+(options.extraWrites??0),
+  },now,options.flags??(operation==='registration'?['registration_enabled']:[]));
   if (!gate.allowed) {
     const maintenance=await query(env.DB,"SELECT enabled FROM feature_flags WHERE name='maintenance_mode'").first<{enabled:number}>();
     throw new HttpError(503,maintenance?.enabled===1?'maintenance':'cost_limited',60);
@@ -66,7 +68,7 @@ async function admit(env: Env,now:number,scopes:readonly LimitScope[],units:numb
   if (!rate.allowed) throw new HttpError(429,'rate_limited',rate.retryAfter);
 }
 
-function bearer(request: Request) {
+export function bearer(request: Request) {
   const value=request.headers.get('authorization')?.match(/^Bearer ([A-Za-z0-9._-]{1,8192})$/)?.[1];
   if (!value) throw new HttpError(401,'authentication_required');
   return value;

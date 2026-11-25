@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../community/composer.dart';
+import '../community/forum.dart';
 import '../membership/controller.dart';
 import '../membership/screens.dart';
 import '../network/api_notice.dart';
@@ -33,6 +35,7 @@ class NavigationPage extends StatelessWidget {
     final n = navigation;
     final id = resource;
     return switch (screen) {
+      Screen.compose when n.community != null => ForumComposer(n, n.composing),
       Screen.compose => ComposePreview(
         onExit: n.back,
         choosePhoto: () =>
@@ -64,6 +67,29 @@ class NavigationPage extends StatelessWidget {
     final membership = n.realMembership;
     void open(Screen screen, [String? resource]) =>
         n.open<void>(Destination(screen, resource));
+    if (n.community != null) {
+      switch (screen) {
+        case Screen.feed:
+          return ForumList(n, root: true);
+        case Screen.post:
+          return ForumObject(n, id!);
+        case Screen.user:
+          return ForumObject(n, id!, user: true);
+        case Screen.tagged:
+          return ForumList(n, tag: id);
+        case Screen.activity:
+          return ForumList(n, author: n.community!.owner);
+        case Screen.blocks:
+          return _list([const Text('ブロック一覧は準備中です。')]);
+        case Screen.notifications:
+          return _list([const Text('通知は準備中です。')]);
+        case Screen.tags:
+        case Screen.search:
+          return _list([const Text('人気のタグ・検索は準備中です。')]);
+        default:
+          break;
+      }
+    }
     switch (screen) {
       case Screen.feed:
         if (membership != null) {
@@ -507,7 +533,15 @@ class NavigationPage extends StatelessWidget {
           if (membership != null)
             TextButton(
               onPressed: () async {
-                if (await confirmSignOut(context, 'ログアウトしますか？')) {
+                var pending = false;
+                try {
+                  pending = await membership.hasPendingDrafts();
+                } catch (_) {}
+                if (!context.mounted) return;
+                if (await confirmSignOut(
+                  context,
+                  pending ? '下書きはこの端末に残ります。ログアウトしますか？' : 'ログアウトしますか？',
+                )) {
                   await membership.signOut();
                 }
               },
@@ -628,8 +662,9 @@ class _ScreenFrame extends StatelessWidget {
     return Scaffold(
       floatingActionButton: screen == Screen.feed
           ? ComposeButton(
-              onPressed: () =>
-                  navigation.open<void>(const Destination(Screen.compose)),
+              onPressed: () => navigation.community == null
+                  ? navigation.open<void>(const Destination(Screen.compose))
+                  : openComposer(navigation),
             )
           : null,
       body: SafeArea(

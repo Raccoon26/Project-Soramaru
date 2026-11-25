@@ -14,7 +14,7 @@ const expectedTables = ['schema_migrations',
   'posts','comments','tags','post_tags','blocks','reactions','badge_catalog','badge_awards','applied_badges',
   'media_capacity','media_owner_capacity','media_reservations','media_objects','post_media','content_items',
   'usage_windows','feature_flags','rate_limits','scheduled_jobs','outbox','idempotency_keys','audit_events',
-  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit'];
+  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports'];
 const crypt = globalThis.crypto;
 const buffer = globalThis.Buffer;
 
@@ -110,9 +110,10 @@ export async function restore(db,envelope,key,journal) {
     if (entry.kind === 'post' || entry.kind === 'content') {
       if (!isId(entry.id)) throw new Error('Invalid deletion journal content ID');
       const table = entry.kind === 'post' ? 'posts' : 'content_items';
-      return [db.prepare("UPDATE " + table +
-        " SET state='deleted',updated_at=max(updated_at,?1),version=version+1 WHERE id=?2 AND state<>'deleted'")
-        .bind(entry.at,entry.id)];
+      const tombstone=db.prepare("UPDATE " + table + (entry.kind === 'post' ? " SET body='', " : " SET ") +
+        "state='deleted',updated_at=max(updated_at,?1),version=version+1 WHERE id=?2 AND state<>'deleted'")
+        .bind(entry.at,entry.id);
+      return entry.kind==='post'?[tombstone,db.prepare('DELETE FROM post_tags WHERE post_id=?').bind(entry.id)]:[tombstone];
     }
     if (!isId(entry.memberId) || entry.kind && entry.kind !== 'account') throw new Error('Invalid deletion journal account ID');
     return [
