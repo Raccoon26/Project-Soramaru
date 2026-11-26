@@ -7,9 +7,9 @@ import { digest,isId,query } from './platform.ts';
 import type { Database,SqlValue } from './platform.ts';
 import { idempotent } from './writes.ts';
 import { banned,postInput } from './community-input.ts';
-import { memberVisible,postVisible } from './photo-access.ts';
+import { acceptedComment,memberVisible,postVisible,requestTime,viewer,visibilityCte } from './visibility.ts';
 
-const actorGuard=`EXISTS (
+export const actorGuard=`EXISTS (
  SELECT 1 FROM members a JOIN member_sessions s ON s.member_id=a.id
  JOIN member_profiles pp ON pp.member_id=a.id
  WHERE a.id=? AND s.id=? AND a.state='active' AND pp.configured_at IS NOT NULL
@@ -63,7 +63,7 @@ export class CommunityStore {
 
   private get id() { return this.actor.member.id; }
   private get visibility() { return [this.now,this.id,this.id] as const; }
-  private get guard() { return [this.id,this.actor.session.id,this.now,this.actor.identity.validSince??0,policyVersion,policyDocuments.length] as const; }
+  get guard() { return [this.id,this.actor.session.id,this.now,this.actor.identity.validSince??0,policyVersion,policyDocuments.length] as const; }
 
   async list(params: URLSearchParams,key: CryptoKey) {
     const category=params.get('category')??'all';
@@ -124,7 +124,7 @@ export class CommunityStore {
     const permitted=`coalesce(json_array_length(?),0)=(SELECT count(DISTINCT expected_sha) FROM media_reservations
       WHERE id IN (SELECT value FROM json_each(?))) AND NOT EXISTS(SELECT 1 FROM json_each(?) picked WHERE NOT EXISTS(
       SELECT 1 FROM media_reservations r JOIN media_objects m ON m.id=r.id
-      WHERE r.id=picked.value AND r.owner_id=? AND r.purpose='post' AND r.state IN ('approved','attached')
+      WHERE r.id=picked.value AND r.owner_id=? AND r.purpose='post' AND r.comment_scope=0 AND r.state IN ('approved','attached')
       AND m.width IS NOT NULL AND EXISTS(SELECT 1 FROM media_objects thumb JOIN media_reservations tr ON tr.id=thumb.id
         WHERE thumb.variant_of=r.id AND thumb.owner_id=r.owner_id AND tr.purpose='thumbnail'
         AND thumb.width IS NOT NULL AND tr.state IN ('approved','attached'))))`;
@@ -192,17 +192,19 @@ export class CommunityStore {
     const id=body.targetId;
     const category=body.category;
     const detail=body.detail??'';
-    if ((kind!=='post'&&kind!=='member')||typeof id!=='string'||!isId(id)||
+    if ((kind!=='post'&&kind!=='member'&&kind!=='comment')||typeof id!=='string'||!isId(id)||
         typeof category!=='string'||!['spam','disruption','harassment','inappropriate','privacy','impersonation','copyright','other'].includes(category)||
         typeof detail!=='string'||[...detail].length>500) throw new HttpError(400,'invalid_request');
     if (banned.test(detail)) throw new HttpError(400,'invalid_request');
     const target=kind==='post'?`SELECT p.author_id AS owner,p.version FROM posts p WHERE p.id=? AND ${postVisible('p')}`:
+      kind==='comment'?`SELECT c.author_id AS owner,c.version FROM comments c JOIN posts p ON p.id=c.post_id
+        WHERE c.id=? AND ${postVisible('p',viewer,requestTime)} AND ${acceptedComment('c')}`:
       `SELECT m.id AS owner,m.version FROM members m WHERE m.id=? AND m.state='active'`;
     const params=kind==='post'?[id,...this.visibility]:[id];
-    await query(this.db,`INSERT INTO community_reports SELECT ?,?,?,?,t.owner,t.version,?, ?,?
+    await query(this.db,`${visibilityCte} INSERT INTO community_reports SELECT ?,?,?,?,t.owner,t.version,?, ?,?
       FROM (${target}) t WHERE t.owner<>? AND ${actorGuard}
       ON CONFLICT(reporter_id,target_kind,target_id) DO NOTHING`,
-      crypto.randomUUID(),this.id,kind,id,category,detail.trim(),this.now,...params,this.id,...this.guard).run();
+      this.id,this.now,crypto.randomUUID(),this.id,kind,id,category,detail.trim(),this.now,...params,this.id,...this.guard).run();
     if (!await query(this.db,`SELECT 1 FROM community_reports WHERE reporter_id=? AND target_kind=? AND target_id=? AND ${actorGuard}`,
       this.id,kind,id,...this.guard).first()) throw new HttpError(404,'not_found');
   }

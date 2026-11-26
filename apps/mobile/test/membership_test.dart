@@ -289,6 +289,34 @@ void main() {
             final path =
                 '/v1/media/$id?parent=post&parent_id=${post['id']}&variant=full';
             expect(await controller.photoBytes(path), photo.full);
+            final root = await controller.community(
+              '/v1/posts/${post['id']}/comments',
+              method: 'POST',
+              headers: {'idempotency-key': draftId()},
+              body: {'body': 'ローカルのコメント'},
+            );
+            final commentPhoto = await PhotoJobs(community)
+                .upload(PhotoJob(photo), 'comment', TransferCancel(), (_) {});
+            final reply = await controller.community(
+              '/v1/posts/${post['id']}/comments',
+              method: 'POST',
+              headers: {'idempotency-key': draftId()},
+              body: {'parentId': root['id'], 'photoId': commentPhoto},
+            );
+            expect(reply['photoId'], commentPhoto);
+            expect(
+              await controller.photoBytes(
+                '/v1/media/$commentPhoto?parent=comment&parent_id=${reply['id']}&variant=full',
+              ),
+              photo.full,
+            );
+            expect(
+              (await controller.community(
+                '/v1/reactions/comment/${reply['id']}',
+                method: 'PUT',
+              ))['liked'],
+              true,
+            );
           } finally {
             community.dispose();
             await drafts.close();

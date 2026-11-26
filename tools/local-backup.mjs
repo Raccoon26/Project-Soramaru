@@ -14,7 +14,7 @@ const expectedTables = ['schema_migrations',
   'posts','comments','tags','post_tags','blocks','reactions','badge_catalog','badge_awards','applied_badges',
   'media_capacity','media_owner_capacity','media_reservations','media_objects','post_media','content_items',
   'usage_windows','feature_flags','rate_limits','scheduled_jobs','outbox','idempotency_keys','audit_events',
-  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports','photo_albums','photo_album_items'];
+  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports','photo_albums','photo_album_items','stamp_sets','stamp_items','comment_media'];
 const crypt = globalThis.crypto;
 const buffer = globalThis.Buffer;
 
@@ -90,8 +90,9 @@ export async function restore(db,envelope,key,journal) {
   if (empty) throw new Error('Restore requires a separate empty database');
 
   const sql = list.flatMap(item => item.statements);
-  const create = sql.filter(statement => /^CREATE TABLE /.test(statement));
-  const alter=sql.filter(statement=>/^ALTER TABLE /.test(statement));
+  const create = sql.filter(statement => /^CREATE TABLE /.test(statement)&&
+    (!statement.startsWith('CREATE TABLE community_reports(')||statement.includes("'member','comment'")));
+  const alter=sql.filter(statement=>/^ALTER TABLE /.test(statement)&&!/^ALTER TABLE community_reports RENAME TO /.test(statement));
   const attach = sql.filter(statement => /^CREATE (?:(?:UNIQUE )?INDEX|TRIGGER) /.test(statement));
   const records = expectedTables.flatMap(table => {
     const rows = saved.tables[table];
@@ -107,12 +108,13 @@ export async function restore(db,envelope,key,journal) {
     if (!Number.isSafeInteger(entry.at) || entry.at < 1 || entry.at > journal.through) {
       throw new Error('Invalid deletion journal entry timestamp');
     }
-    if (entry.kind === 'post' || entry.kind === 'content') {
+    if (entry.kind === 'post' || entry.kind === 'content' || entry.kind === 'comment') {
       if (!isId(entry.id)) throw new Error('Invalid deletion journal content ID');
-      const table = entry.kind === 'post' ? 'posts' : 'content_items';
-      const tombstone=db.prepare("UPDATE " + table + (entry.kind === 'post' ? " SET body='', " : " SET ") +
+      const table = entry.kind === 'comment' ? 'comments' : entry.kind === 'post' ? 'posts' : 'content_items';
+      const tombstone=db.prepare("UPDATE " + table + (entry.kind === 'comment' ? " SET body='', stamp_id=NULL, " : entry.kind === 'post' ? " SET body='', " : " SET ") +
         "state='deleted',updated_at=max(updated_at,?1),version=version+1 WHERE id=?2 AND state<>'deleted'")
         .bind(entry.at,entry.id);
+      if(entry.kind==='comment') return [tombstone,db.prepare('DELETE FROM comment_media WHERE comment_id=?').bind(entry.id)];
       return entry.kind==='post'?[tombstone,db.prepare('DELETE FROM post_tags WHERE post_id=?').bind(entry.id)]:[tombstone];
     }
     if (!isId(entry.memberId) || entry.kind && entry.kind !== 'account') throw new Error('Invalid deletion journal account ID');

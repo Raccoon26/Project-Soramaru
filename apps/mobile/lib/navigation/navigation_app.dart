@@ -179,6 +179,20 @@ class NavigationController {
       _scroll.putIfAbsent(tab, ScrollController.new);
   Screen? get current => Screen.byName[router.state.topRoute?.name];
   String get currentPath => router.state.uri.path;
+  String get _currentLocation => router.state.uri.toString();
+
+  void resolveComment(String post, String comment) {
+    final location = Destination(Screen.comments, post, comment).location;
+    final handoff = _return.value;
+    if (handoff != null && handoff.destination == _currentLocation) {
+      _return.value = (
+        source: handoff.source,
+        destination: location,
+        pushed: handoff.pushed,
+      );
+    }
+    router.replace(location);
+  }
 
   void dispose() {
     community?.dispose();
@@ -205,6 +219,9 @@ class NavigationController {
         navigation: this,
         screen: screen,
         resource: id,
+        comment: screen == Screen.comments
+            ? state.uri.queryParameters['comment']
+            : null,
       );
       return _page(
         context,
@@ -213,7 +230,8 @@ class NavigationController {
           valueListenable: _return,
           child: normal,
           builder: (context, handoff, child) {
-            final returnsToSource = handoff?.destination == state.uri.path;
+            final returnsToSource =
+                handoff?.destination == state.uri.toString();
             final branchRoot =
                 screen == screen.root &&
                 screen.tab != null &&
@@ -259,13 +277,21 @@ class NavigationController {
   }
 
   String? _redirect(BuildContext context, GoRouterState state) {
-    if (state.uri.hasQuery ||
+    final screen = Screen.byName[state.topRoute?.name];
+    final focus = state.uri.queryParametersAll;
+    final validFocus =
+        community != null &&
+        screen == Screen.comments &&
+        focus.length == 1 &&
+        focus['comment']?.length == 1 &&
+        focus['comment']!.single.length == 36 &&
+        resourceId.hasMatch(focus['comment']!.single);
+    if ((state.uri.hasQuery && !validFocus) ||
         state.uri.hasFragment ||
         state.uri.hasScheme ||
         state.uri.hasAuthority) {
       return Screen.invalidLink.pattern;
     }
-    final screen = Screen.byName[state.topRoute?.name];
     if (screen == null) return null;
     if ((screen == Screen.login ||
             (screen == Screen.restricted && _pending != null)) &&
@@ -309,6 +335,7 @@ class NavigationController {
       if (community != null &&
           [
             Screen.post,
+            Screen.comments,
             Screen.user,
             Screen.tagged,
             if (community?.hasPhotos == true) ...[Screen.album, Screen.photo],
@@ -357,7 +384,7 @@ class NavigationController {
       return false;
     }
     final location = _externalLocation(raw);
-    if (location == currentPath) {
+    if (location == _currentLocation) {
       router.refresh();
     } else {
       final destination = DeepLinks(
@@ -403,13 +430,13 @@ class NavigationController {
     if (_disposed || _queued != path) return null;
     _queued = null;
     if (_activeTab != target) return null;
-    final pushed = currentPath != path;
+    final pushed = _currentLocation != path;
     _return.value = (source: source, destination: path, pushed: pushed);
     return pushed ? _push<T>(path) : null;
   }
 
   Future<T?> _push<T>(String location) {
-    if (_disposed || _queued != null || currentPath == location) {
+    if (_disposed || _queued != null || _currentLocation == location) {
       return Future<T?>.value();
     }
     _queued = location;
@@ -445,7 +472,7 @@ class NavigationController {
   void back<T>([T? value]) {
     if (current == Screen.login) _pending = null;
     final prior = _return.value;
-    if (prior != null && prior.destination == currentPath) {
+    if (prior != null && prior.destination == _currentLocation) {
       _return.value = null;
       if (prior.pushed && router.canPop()) {
         router.pop<T>(value);

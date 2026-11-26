@@ -70,3 +70,8 @@ DEV-05 **COMPLETE**는 [PR #7](https://github.com/Raccoon26/Project-Soramaru/pul
 DEV-06은 사진 선택·정제·암호화 초안, D1 예약·R2 검역·승인, 원자적 게시물 및 프로필 연결, 문맥 기반 회원 열람, 사진 뷰어, 로컬 합성 공식 앨범을 추가했다. D1 v8은 장부를 포함해 41개 테이블이다. [사진 업로드](MEDIA_UPLOAD_GUIDE.md) · [검증 기록](TEST_REPORT.md) · [DEV-06 PR와 검사](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-06-photo-gallery)
 
 실기기 사진 권한·HEIC·색상·배터리, iOS 빌드와 Cloudflare 운영 CPU·공급자 청구는 출시 검증에 남아 있다. 운영 리소스와 실제 계정 추가 및 서버 운영비 증가 없이 로컬에서 개발했다. DEV-07은 별도 지시 후 시작한다.
+
+
+## DEV-07 댓글과 반응
+
+DEV-06 **COMPLETE**는 [PR #8](https://github.com/Raccoon26/Project-Soramaru/pull/8)의 main 병합 커밋 `3b43688db33dd4f7788077fa3752b511d65f8b20` 및 [최종 CI](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45638088621)로 확인했다. DEV-07은 댓글·답글·반응과 사진·스탬프, 활동, 신고, 알림 이벤트를 추가한다. 현재 검증 범위는 [테스트 보고](TEST_REPORT.md), 공개 변경은 [DEV-07 PR](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-07-comments-reactions)에 기록한다.

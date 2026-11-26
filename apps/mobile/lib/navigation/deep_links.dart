@@ -11,13 +11,16 @@ class DeepLinks {
   );
 
   static final _forumShape = RegExp(
-    r'^soramaru-dev://open/(post|profile|album)/([0-9a-f-]{36})$',
+    r'^soramaru-dev://open/(post|profile|album|comment)/([0-9a-f-]{36})$',
   );
 
   Destination? parse(String input) {
     if (input.length > maxLength || input.contains(RegExp(r'\s'))) return null;
     final forum = community ? _forumShape.firstMatch(input) : null;
     if (forum != null && resourceId.hasMatch(forum[2]!)) {
+      if (forum[1] == 'comment' && forum[2]!.length == 36) {
+        return Destination(Screen.comments, forum[2], forum[2]);
+      }
       return Destination(switch (forum[1]) {
         'post' => Screen.post,
         'album' => Screen.album,

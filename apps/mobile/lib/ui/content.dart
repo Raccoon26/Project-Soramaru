@@ -372,7 +372,7 @@ class PostCard extends StatelessWidget {
                 spacing: Space.sm,
                 children: [
                   if (showReactionCounts)
-                    _Reaction(
+                    ReactionControl(
                       icon: post.liked ? Icons.favorite : Icons.favorite_border,
                       label: 'いいね',
                       count: post.likes,
@@ -380,7 +380,7 @@ class PostCard extends StatelessWidget {
                       onPressed: onLike,
                     ),
                   if (showReactionCounts)
-                    _Reaction(
+                    ReactionControl(
                       icon: Icons.chat_bubble_outline,
                       label: 'コメント',
                       count: post.comments,
@@ -403,18 +403,21 @@ class PostCard extends StatelessWidget {
   );
 }
 
-class _Reaction extends StatelessWidget {
-  const _Reaction({
+class ReactionControl extends StatelessWidget {
+  const ReactionControl({
+    super.key,
     required this.icon,
     required this.label,
     required this.count,
     this.selected = false,
+    this.selectedColor = Palette.pinkContrast,
     this.onPressed,
   });
   final IconData icon;
   final String label;
   final int count;
   final bool selected;
+  final Color selectedColor;
   final VoidCallback? onPressed;
 
   @override
@@ -427,7 +430,7 @@ class _Reaction extends StatelessWidget {
     child: TextButton(
       style: TextButton.styleFrom(
         minimumSize: const Size(Space.touch, Space.touch),
-        foregroundColor: selected ? Palette.pinkContrast : Palette.secondary,
+        foregroundColor: selected ? selectedColor : Palette.secondary,
         padding: const EdgeInsets.symmetric(horizontal: Space.sm),
       ),
       onPressed: onPressed,

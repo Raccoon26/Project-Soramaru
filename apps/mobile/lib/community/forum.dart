@@ -12,6 +12,7 @@ import '../ui/design.dart';
 import '../ui/feedback.dart';
 import 'community.dart';
 import 'drafts.dart';
+import 'reactions.dart';
 
 String whenPosted(Object? value) {
   final time = DateTime.fromMillisecondsSinceEpoch(
@@ -424,6 +425,18 @@ class ForumCard extends StatelessWidget {
             ],
           ]),
         ),
+        if (post.containsKey('commentCount'))
+          Wrap(
+            children: [
+              ReactionButton(api, 'post', id, post, key: ValueKey(id)),
+              ReactionControl(
+                icon: Icons.chat_bubble_outline,
+                label: 'コメント',
+                count: post['commentCount'] as int,
+                onPressed: () => n.open<void>(Destination(Screen.comments, id)),
+              ),
+            ],
+          ),
         if (api.hasPhotos && photos.isNotEmpty)
           Padding(
             padding: const EdgeInsets.all(Space.sm),

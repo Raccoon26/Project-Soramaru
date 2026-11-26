@@ -126,8 +126,9 @@ class PhotoJobs {
     String draft,
     String localId,
     TransferCancel cancel,
-    void Function(double) progress,
-  ) async {
+    void Function(double) progress, {
+    String purpose = 'post',
+  }) async {
     if (isRemotePhoto(localId)) return localId;
     final account = owner;
     final job = await local(draft, localId) ?? (throw const PhotoProblem());
@@ -138,7 +139,7 @@ class PhotoJobs {
       await drafts.storePhoto(account, draft, localId, job.encode());
     }
 
-    return upload(job, 'post', cancel, progress, checkpoint: checkpoint);
+    return upload(job, purpose, cancel, progress, checkpoint: checkpoint);
   }
 
   Future<String> upload(

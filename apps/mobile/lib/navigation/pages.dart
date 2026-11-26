@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../community/comments.dart';
 import '../community/composer.dart';
 import '../community/forum.dart';
 import '../membership/controller.dart';
@@ -28,10 +29,11 @@ class NavigationPage extends StatelessWidget {
     required this.navigation,
     required this.screen,
     this.resource,
+    this.comment,
   });
   final NavigationController navigation;
   final Screen screen;
-  final String? resource;
+  final String? resource, comment;
 
   @override
   Widget build(BuildContext context) {
@@ -88,12 +90,19 @@ class NavigationPage extends StatelessWidget {
           return ForumList(n, root: true);
         case Screen.post:
           return ForumObject(n, id!);
+        case Screen.comments:
+          return CommentBoard(
+            n,
+            id!,
+            focus: comment,
+            key: ValueKey('$id:$comment'),
+          );
         case Screen.user:
           return ForumObject(n, id!, user: true);
         case Screen.tagged:
           return ForumList(n, tag: id);
         case Screen.activity:
-          return ForumList(n, author: n.community!.owner);
+          return ForumActivity(n);
         case Screen.blocks:
           return _list([const Text('ブロック一覧は準備中です。')]);
         case Screen.notifications:

@@ -22,14 +22,14 @@ export function cursorKey(secret: Uint8Array<ArrayBuffer>) {
   return crypto.subtle.importKey('raw',secret,{ name:'HMAC',hash:'SHA-256' },false,['sign','verify']);
 }
 
-export async function openCursor(key: CryptoKey, raw: string, scope: string, now: number): Promise<Position> {
+export async function openCursor(key: CryptoKey, raw: string, scope: string, now: number, validateId = isId): Promise<Position> {
   try {
     const [encoded, mac, extra] = raw.split('.');
     if (raw.length > 768 || !encoded || !mac || extra !== undefined) throw new Error('Malformed cursor');
     const bytes = decode(encoded);
     if (!await crypto.subtle.verify('HMAC', key, decode(mac), bytes)) throw new Error('Invalid MAC');
     const value = JSON.parse(new TextDecoder().decode(bytes)) as Position;
-    if (!isId(value.id) || value.scope !== scope || value.expires <= now ||
+    if (!validateId(value.id) || value.scope !== scope || value.expires <= now ||
         !Number.isSafeInteger(value.created) || !Number.isSafeInteger(value.cutoff) ||
         value.created < 0 || value.created > value.cutoff || value.cutoff > now) throw new Error('Invalid position');
     return value;
