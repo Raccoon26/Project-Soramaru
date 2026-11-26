@@ -28,10 +28,11 @@ export interface Reservation {
   purpose: PhotoPurpose|null;
   expected_sha: string|null;
   variant_id: string|null;
+  comment_scope: number;
 }
 
 export interface MediaRow { id: string; object_key: string; actual_bytes: number; sha256: string; mime: string }
-interface PhotoUpload {purpose:PhotoPurpose;hash:string;variant:string|null}
+interface PhotoUpload {purpose:PhotoPurpose;hash:string;variant:string|null;comment?:boolean}
 interface SessionGuard {id:string;member:string;validSince:number}
 interface Capacity { global: number; member: number; pending: number }
 
@@ -78,11 +79,12 @@ export class MediaStore {
     await this.admitUpload(mime,bytes,0,0);
     const db = this.env.DB;
     const id = crypto.randomUUID();
-    const guard=this.guard(14,now);
+    const guard=this.guard(15,now);
     const result = await query(db,`
       INSERT INTO media_reservations
-        (id,owner_id,request_key,reserved_bytes,mime,state,created_at,expires_at,updated_at,purpose,expected_sha,variant_id)
-      SELECT ?1,?2,?3,?4,?5,'reserved',?6,?7,?6,?11,?12,?13
+        (id,owner_id,request_key,reserved_bytes,mime,state,created_at,expires_at,updated_at,purpose,expected_sha,variant_id,comment_scope)
+      SELECT ?1,?2,?3,?4,?5,'reserved',?6,?7,?6,?11,?12,?13,
+        coalesce((SELECT comment_scope FROM media_reservations WHERE id=?13),?14)
       FROM media_capacity WHERE singleton=1 AND held_bytes+2*?4<=?8
         AND EXISTS (SELECT 1 FROM members WHERE id=?2 AND state='active')
         AND coalesce((SELECT pending FROM media_owner_capacity WHERE owner_id=?2),0)<?9
@@ -91,7 +93,7 @@ export class MediaStore {
         AND (?13 IS NULL OR EXISTS(SELECT 1 FROM media_reservations root WHERE root.id=?13 AND root.owner_id=?2
           AND root.purpose IN ('post','gallery') AND root.state IN ('approved','attached')))
       ON CONFLICT DO NOTHING RETURNING *
-    `,id,actor.id,requestKey,bytes,mime,now,now+ttl,this.capacity.global,this.capacity.pending,this.capacity.member,photo?.purpose??null,photo?.hash??null,photo?.variant??null,...guard.params)
+    `,id,actor.id,requestKey,bytes,mime,now,now+ttl,this.capacity.global,this.capacity.pending,this.capacity.member,photo?.purpose??null,photo?.hash??null,photo?.variant??null,photo?.comment?1:0,...guard.params)
       .all<Reservation>();
     const created = result.results[0];
     if (created) {
@@ -101,7 +103,8 @@ export class MediaStore {
     const previous = await query(db,'SELECT * FROM media_reservations WHERE owner_id=? AND request_key=?',actor.id,requestKey)
       .first<Reservation>();
     if (!previous) throw new HttpError(503,'cost_limited',60);
-    if (previous.reserved_bytes !== bytes || previous.mime !== mime || previous.purpose!==(photo?.purpose??null) || previous.expected_sha!==(photo?.hash??null) || previous.variant_id!==(photo?.variant??null) || terminalStates.has(previous.state) ||
+    if (previous.reserved_bytes !== bytes || previous.mime !== mime || previous.purpose!==(photo?.purpose??null) || previous.expected_sha!==(photo?.hash??null) || previous.variant_id!==(photo?.variant??null) ||
+        previous.variant_id===null&&previous.comment_scope!==(photo?.comment?1:0) || terminalStates.has(previous.state) ||
         previous.state === 'deleting' || ['reserved','quarantined'].includes(previous.state) && previous.expires_at <= now) {
       throw new HttpError(409,'conflict');
     }
@@ -254,6 +257,8 @@ export class MediaStore {
     await query(db,`UPDATE media_reservations AS r SET state='deleting',updated_at=?1
       WHERE id=?2 AND ${guard.sql} AND (state IN ('reserved','quarantined') OR (purpose IS NOT NULL AND state IN ('approved','attached')
       AND NOT EXISTS(SELECT 1 FROM post_media pm JOIN posts p ON p.id=pm.post_id WHERE pm.media_id=r.id AND p.state<>'deleted')
+      AND NOT EXISTS(SELECT 1 FROM comment_media cm JOIN comments c ON c.id=cm.comment_id JOIN posts p ON p.id=c.post_id
+        WHERE cm.media_id=r.id AND c.state<>'deleted' AND p.state<>'deleted')
       AND NOT EXISTS(SELECT 1 FROM member_profiles pr WHERE pr.avatar_media_id=r.id)
       AND NOT EXISTS(SELECT 1 FROM photo_album_items ai JOIN content_items c ON c.id=ai.album_id WHERE ai.media_id=r.id AND c.state<>'deleted')
       AND NOT EXISTS(SELECT 1 FROM media_reservations root WHERE root.id=r.variant_id AND root.state IN ('approved','attached'))))`,now,row.id,...guard.params).run();
@@ -272,8 +277,9 @@ export class MediaStore {
         (SELECT 1 FROM media_reservations WHERE id=? AND state='deleting')
         AND NOT EXISTS(SELECT 1 FROM media_objects WHERE variant_of=?)
         AND NOT EXISTS(SELECT 1 FROM post_media WHERE media_id=?)
+        AND NOT EXISTS(SELECT 1 FROM comment_media WHERE media_id=?)
         AND NOT EXISTS(SELECT 1 FROM photo_album_items WHERE media_id=?)
-        AND NOT EXISTS(SELECT 1 FROM member_profiles WHERE avatar_media_id=?)`,row.id,row.id,row.id,row.id,row.id,row.id),
+        AND NOT EXISTS(SELECT 1 FROM member_profiles WHERE avatar_media_id=?)`,row.id,row.id,row.id,row.id,row.id,row.id,row.id),
       query(db,`UPDATE media_reservations SET state=?,updated_at=? WHERE id=? AND state='deleting'`,disposition,now,row.id),
     ]);
     if (result[1]?.meta.changes === 1 && disposition === 'expired') {
@@ -297,6 +303,8 @@ export class MediaStore {
     const found=await query(this.env.DB,`SELECT r.* FROM media_reservations r WHERE r.purpose IS NOT NULL
       AND r.state IN ('approved','attached') AND r.updated_at<=?
       AND NOT EXISTS(SELECT 1 FROM post_media pm JOIN posts p ON p.id=pm.post_id WHERE pm.media_id=r.id AND p.state<>'deleted')
+      AND NOT EXISTS(SELECT 1 FROM comment_media cm JOIN comments c ON c.id=cm.comment_id JOIN posts p ON p.id=c.post_id
+        WHERE cm.media_id=r.id AND c.state<>'deleted' AND p.state<>'deleted')
       AND NOT EXISTS(SELECT 1 FROM member_profiles p WHERE p.avatar_media_id=r.id)
       AND NOT EXISTS(SELECT 1 FROM photo_album_items ai JOIN content_items c ON c.id=ai.album_id WHERE ai.media_id=r.id AND c.state<>'deleted')
       AND NOT EXISTS(SELECT 1 FROM media_reservations root WHERE root.id=r.variant_id AND root.state IN ('approved','attached'))

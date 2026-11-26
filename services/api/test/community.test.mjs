@@ -13,7 +13,7 @@ const requestKey=()=>uuid().replaceAll('-','');
 const time=1_795_578_000_000;
 const error=(status,code)=>e=>e.status===status&&e.code===code;
 
-async function check(action,version=8) {
+async function check(action,version=9) {
   const machine=simulator();
   try {
     const DB=await machine.getD1Database('DB');

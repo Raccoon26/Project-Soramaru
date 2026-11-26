@@ -12,7 +12,15 @@ import 'photo_jobs.dart';
 import 'photo_view.dart';
 
 class SelectionRequest {
-  const SelectionRequest(this.draft, this.items, this.postId);
+  const SelectionRequest(
+    this.draft,
+    this.items,
+    this.postId, {
+    this.limit = 10,
+    this.kind = 'post',
+  });
+  final int limit;
+  final String kind;
   final String draft;
   final List<String> items;
   final String? postId;
@@ -39,7 +47,7 @@ class _PhotoSelectionState extends State<PhotoSelection> {
   String marker(String owner) => '$owner:$draft';
 
   Future<void> choose({bool camera = false, bool recover = false}) async {
-    if (processing || ids.length >= 10) return;
+    if (processing || ids.length >= widget.request.limit) return;
     setState(() {
       processing = true;
       message = null;
@@ -54,7 +62,7 @@ class _PhotoSelectionState extends State<PhotoSelection> {
         files = lost.files ?? [];
       } else {
         await _storage.write(key: _pickerSlot, value: marker(owner));
-        if (camera || ids.length == 9) {
+        if (camera || ids.length == widget.request.limit - 1) {
           final file = await picker.pickImage(
             source: camera ? ImageSource.camera : ImageSource.gallery,
             requestFullMetadata: false,
@@ -62,7 +70,7 @@ class _PhotoSelectionState extends State<PhotoSelection> {
           files = [?file];
         } else {
           files = await picker.pickMultiImage(
-            limit: 10 - ids.length,
+            limit: widget.request.limit - ids.length,
             requestFullMetadata: false,
           );
         }
@@ -71,8 +79,8 @@ class _PhotoSelectionState extends State<PhotoSelection> {
       if (await _storage.read(key: _pickerSlot) == marker(owner)) {
         await _storage.delete(key: _pickerSlot);
       }
-      if (files.length > 10 - ids.length) {
-        setState(() => message = '写真は合わせて10枚まで追加できます。');
+      if (files.length > widget.request.limit - ids.length) {
+        setState(() => message = '写真は合わせて${widget.request.limit}枚まで追加できます。');
         return;
       }
       final known = <String>{};
@@ -141,17 +149,22 @@ class _PhotoSelectionState extends State<PhotoSelection> {
         child: ListView(
           padding: const EdgeInsets.all(Space.edge),
           children: [
-            Text('デバイス　選択（${ids.length}/10）', style: TypeStyles.heading),
+            Text(
+              'デバイス　選択（${ids.length}/${widget.request.limit}）',
+              style: TypeStyles.heading,
+            ),
             Wrap(
               spacing: Space.sm,
               runSpacing: Space.sm,
               children: [
                 OutlinedButton(
-                  onPressed: processing || ids.length >= 10 ? null : choose,
+                  onPressed: processing || ids.length >= widget.request.limit
+                      ? null
+                      : choose,
                   child: const Text('写真を選択'),
                 ),
                 OutlinedButton(
-                  onPressed: processing || ids.length >= 10
+                  onPressed: processing || ids.length >= widget.request.limit
                       ? null
                       : () => choose(camera: true),
                   child: const Text('カメラで撮影'),
@@ -186,7 +199,11 @@ class _PhotoSelectionState extends State<PhotoSelection> {
                     if (isRemotePhoto(id) && widget.request.postId != null)
                       RemotePhoto(
                         widget.api,
-                        PhotoPointer('post', widget.request.postId!, id),
+                        PhotoPointer(
+                          widget.request.kind,
+                          widget.request.postId!,
+                          id,
+                        ),
                         fit: BoxFit.cover,
                       )
                     else

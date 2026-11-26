@@ -144,16 +144,16 @@ try {
   const report=()=>api('/v1/reports',{...outsiderAuth,method:'POST',body:{kind:'post',targetId:post.result.id,category:'other'}});
   assert.equal((await report()).status,202);
   assert.equal((await report()).status,202);
-  async function fixtureUpload(purpose,bytes,variantOf){
-    const result=await api('/v1/uploads',{...auth,method:'POST',headers:{'idempotency-key':random()},
+  async function fixtureUpload(purpose,bytes,variantOf,actor=auth){
+    const result=await api('/v1/uploads',{...actor,method:'POST',headers:{'idempotency-key':random()},
       body:{purpose,mime:'image/jpeg',bytes:bytes.byteLength,sha256:await digest(bytes),variantOf}});
     assert.equal(result.status,201);
     const id=result.result.id;
     const put=await fetch(base+'/v1/uploads/'+id+'/body',{method:'PUT',body:bytes,headers:{
-      authorization:'Bearer '+auth.token,'x-app-session':auth.session,'content-type':'image/jpeg',
+      authorization:'Bearer '+actor.token,'x-app-session':actor.session,'content-type':'image/jpeg',
     }});
     assert.equal(put.status,200);
-    assert.equal((await api('/v1/uploads/'+id+'/complete',{...auth,method:'POST'})).status,200);
+    assert.equal((await api('/v1/uploads/'+id+'/complete',{...actor,method:'POST'})).status,200);
     return id;
   }
   const fixtureBytes=syntheticJpeg(128,84,25);
@@ -167,6 +167,44 @@ try {
   }});
   assert.equal(fromSecond.status,200);
   assert.deepEqual(await fromSecond.arrayBuffer(),fixtureBytes);
+  const thirdMail='third-'+random().toLowerCase()+'@example.invalid';
+  const third=await firebase('signUp',{email:thirdMail,password,returnSecureToken:true});
+  assert.equal(third.status,200);
+  assert.equal((await firebase('sendOobCode',{requestType:'VERIFY_EMAIL',idToken:third.result.idToken})).status,200);
+  const thirdCodes=(await ask(h+'/emulator/v1/projects/'+demoProject+'/oobCodes')).result.oobCodes;
+  const thirdCode=thirdCodes.find(item=>item.email===thirdMail&&item.requestType==='VERIFY_EMAIL').oobCode;
+  assert.equal((await firebase('update',{oobCode:thirdCode})).status,200);
+  const thirdToken=(await refresh(third.result.refreshToken)).result.id_token;
+  const thirdIssued=await issue(thirdToken,random());
+  const thirdAuth={token:thirdToken,session:thirdIssued.result.sessionToken};
+  assert.equal((await api('/v1/me/terms',{...thirdAuth,method:'POST',body:{version:policy.version,documents}})).status,200);
+  assert.equal((await api('/v1/me',{...thirdAuth,method:'PATCH',headers:{'if-match':'"1"'},body:{nickname:'合成の読者'}})).status,200);
+  const commentPath='/v1/posts/'+withPhoto.result.id+'/comments';
+  const root=await api(commentPath,{...outsiderAuth,method:'POST',headers:{'idempotency-key':random()},body:{body:'合成のコメント'}});
+  assert.equal(root.status,201);
+  const replyMedia=await fixtureUpload('comment',fixtureBytes,undefined,thirdAuth);
+  await fixtureUpload('thumbnail',syntheticJpeg(64,42,82),replyMedia,thirdAuth);
+  const reply=await api(commentPath,{...thirdAuth,method:'POST',headers:{'idempotency-key':random()},
+    body:{parentId:root.result.id,photoId:replyMedia}});
+  assert.equal(reply.status,201);
+  const replyPath='/v1/comments/'+reply.result.id;
+  const replyAsset='/v1/media/'+replyMedia+'?parent=comment&parent_id='+reply.result.id+'&variant=thumb';
+  const thumb=await fetch(base+replyAsset,{headers:{authorization:'Bearer '+auth.token,'x-app-session':auth.session}});
+  assert.equal(thumb.status,200);
+  assert.ok((await thumb.arrayBuffer()).byteLength>0);
+  assert.equal((await api('/v1/reactions/post/'+withPhoto.result.id,{...thirdAuth,method:'PUT'})).result.liked,true);
+  assert.equal((await api('/v1/reactions/comment/'+root.result.id,{...thirdAuth,method:'PUT'})).result.likes,1);
+  assert.equal((await api('/v1/reactions/comment/'+root.result.id,{...thirdAuth,method:'DELETE'})).result.likes,0);
+  assert.equal((await api('/v1/comments/'+root.result.id,{...outsiderAuth,method:'PATCH',
+    headers:{'if-match':'"1"','idempotency-key':random()},body:{body:'編集済み'}})).status,200);
+  assert.equal((await api('/v1/reports',{...auth,method:'POST',body:{kind:'comment',targetId:reply.result.id,category:'other'}})).status,202);
+  assert.equal((await api('/v1/me/blocks/'+thirdIssued.result.profile.id,{...auth,method:'PUT'})).status,204);
+  assert.equal((await api(replyPath,auth)).status,404);
+  assert.equal((await api(replyAsset,auth)).status,404);
+  assert.equal((await api(replyPath,{...thirdAuth,method:'DELETE',
+    headers:{'if-match':'"1"','idempotency-key':random()}})).status,409);
+  assert.equal((await api(replyPath,outsiderAuth)).status,200);
+
   assert.equal((await api('/v1/me/blocks/'+post.result.authorId,{...outsiderAuth,method:'PUT'})).status,204);
   assert.equal((await api('/v1/posts/'+post.result.id,outsiderAuth)).status,404);
   assert.equal((await api('/v1/posts/'+quoted.result.id,outsiderAuth)).result.quote,null);
@@ -213,7 +251,7 @@ const seeded=await api('/v1/gallery/'+syntheticAlbum,outsiderAuth);
   assert.equal((await api('/v1/me/session',{
     token:fresh.result.idToken,session:freshApp.result.sessionToken,
   })).status,401);
-  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation, member community and R2 photo visibility passed');
+  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation, member community and R2 photo visibility and three-member interactions passed');
 } finally {
   await worker.close();
 }

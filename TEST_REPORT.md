@@ -139,3 +139,22 @@ Firebase CLI 실행 범위는 로컬 및 CI의 demo 프로젝트 Auth 서비스�
 API 재현은 `npm run lint`, `npm test`, `npm run test:membership`, `npm run db:migrate`, `npm run smoke:api`, `npm run build:api`, `npm run check:repo`를 사용한다. Flutter에서 `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-pub`, `flutter test --no-pub`, `flutter build bundle --no-pub`와 Android ARM64 APK 빌드를 실행한다. 로컬 통합은 수동 Emulator와 Worker를 켠 뒤 `flutter test --no-pub --dart-define=DEV04_LIVE=true test/membership_test.dart --plain-name 'Dart gateway connects to the real local emulators'`를 실행한다. 대표 프리뷰는 `DEV06_PREVIEW=true`로 로컬 `.local/dev-06-preview/`에 기록한다.
 
 Firebase CLI의 직접 도구 릴리스와 간접 알림을 분리했다. 감사 알림의 직접 대상은 전부 간접 설치된 @opentelemetry/core <2.8.0, glob 9.0.0~14.0.1, minimatch 7.0.0~11.0.0, uuid <11.1.1이다. 나머지 10개는 해당 패키지에 도달하는 상위 의존성 경로 항목이다. 이 검사는 운영 서비스에서의 악용 가능 여부를 확정하지 않는다. 벤더 수정 또는 호환 릴리스 출시에 맞춰 재검토한다. 이미지 관련 잠금 의존성은 Flutter image_picker BSD-3-Clause, image MIT, jpeg-js BSD-3-Clause다. jpeg-js 0.4.4는 2022 릴리스이며 검역의 해상도·메모리 상한과 재검토 항목을 유지한다. 네이티브 변환은 OS ImageDecoder/ImageIO를 사용하며 외부 사진 서비스에 전송하지 않는다. [glob](https://github.com/advisories/GHSA-3g3m-2fjr-6pw4) · [minimatch](https://github.com/advisories/GHSA-g3hv-75wg-m249) · [uuid](https://github.com/advisories/GHSA-w5hq-g745-h8pq) · [OpenTelemetry](https://github.com/advisories/GHSA-8988-4f7v-96qf)
+
+
+## DEV-07 댓글과 반응
+
+| 항목 | 결과와 범위 |
+|---|---|
+| Flutter | 기존 134건과 신규 15건. 댓글·답글, 스탬프 선택과 명시적 전송, 좋아요 합치기와 실패 복구, 320/390/430/768dp × 100/130/200%, 기존 Golden 및 내비게이션 회귀. |
+| API | 기존 43건과 신규 4건. 빈 v9·v8 업그레이드, 신고 보존, 댓글·스탬프·권리·커서·동시 수정, 원댓글 자리 표시, 좋아요·Outbox·최근 활동, 댓글 사진의 실제 R2 및 삭제 재적용. |
+| 실제 로컬 통합 | 세 일반 합성 회원의 Firebase Auth Emulator·workerd·D1·R2 통합을 확인했다. 사진 게시물, 댓글, 사진 답글, 게시물 및 댓글 좋아요, 취소, 수정, 신고·차단 및 사설 사진 접근 제한을 포함한다. 별도 Flutter 실제 연결은 JPEG 및 댓글 사진·답글·좋아요를 검증했다. |
+| D1 | 2,300댓글의 SQL 21행 페이지에서 4,600→21 입력 행을 비교했다. 인증·레이트·가시성·응답 집계를 포함하는 20행 API 페이지는 읽기 248행·쓰기 13행이었다. 게시 목록 12회의 읽기는 1,159→1,411행이고 쓰기는 31행이다. 이 수치는 로컬 시험이다. |
+| 비용 | [반응 및 비용 모델](REACTION_GUIDE.md)에 네 MAU 규모, 여덟 시나리오, 1~60개월 및 R2·D1·Outbox 추정을 기록했다. Workers 및 Firebase 운영 리소스 추가 비용은 0엔이다. |
+| 의존성 | npm 루트 0건, Pub OSV 94개 조회 0건. Firebase CLI 15.37.0 개발 의존성 중간 14개 항목에 호환 수정 릴리스가 확인되지 않았다. 해당 CLI는 합성·loopback·CI 운영에 한정하며 앱 또는 Worker 번들에는 포함하지 않는다. 신규 런타임 패키지 또는 원본 스탬프 자산은 추가하지 않았다. |
+| Android | Flutter 번들 및 ARM64 디버그 APK 빌드, APK Signature Scheme v2 확인. ARM64 릴리스에서 개발 전용 문자열 양성 대조 7개가 제거됐고 평문 HTTP와 백업이 비활성 상태다. |
+| 보호·회귀 | 125개 추적 ID와 원본 54개 SHA-256, 공개 이력과 보호된 참조 경로, Gitleaks를 검사한다. 저장소의 Maven Central 429 처리와 12개 기능 플래그를 보존한다. |
+| 대상 외 검증 | iOS 빌드 및 실제 Android·iOS의 권한·HEIC·배터리·스크린리더, 운영 CPU·청구·FCM/APNs 및 R03 권리 승인. |
+
+재현은 `npm run lint`, `npm test`, `npm run test:membership`, `npm run db:migrate`, `npm run smoke:api`, `npm run build:api`, `npm run check:repo`다. Flutter는 `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-pub`, `flutter test --no-pub`를 실행한다. `DEV04_LIVE=true`로 별도 Flutter Gateway 시험을 실행하며 `DEV07_PREVIEW=true`는 합성 프리뷰 4개를 로컬 경로에 저장한다.
+
+수정한 문제는 Firebase 인증기의 Windows 콜드 스타트 준비 시간, 이메일 정규화, workerd의 빈 PUT 본문 처리, 모바일 경로 허용 목록, 실제 댓글 링크의 부모 확인과 회귀 호환이다.

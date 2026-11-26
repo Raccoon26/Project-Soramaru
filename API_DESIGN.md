@@ -72,3 +72,8 @@ DEV-02는 기존 Workers 상태 API와 공용 타입을 그대로 사용한다. 
 | `GET /v1/gallery`, `GET /v1/gallery/:id` | 공식 앨범 페이지와 정렬된 사진 ID. |
 
 `POST/PATCH /v1/posts`의 선택적 `attachments`는 최대 10개의 순서 있는 게시용 ID다. 수정에서 필드를 생략하면 기존 사진을 유지한다. `PATCH /v1/me`의 `avatarMediaId`는 목적·소유권·프로필 버전을 적용하며 null은 제거다. 동시 변경·해시 충돌 409, 초과 413, 형식 오류 415, 부적절한 Range 416, 접근 실패 401/403/404, 레이트 429, 비용 또는 점검 503을 사용한다. [권한과 캐시](MEDIA_ACCESS_GUIDE.md)
+
+
+## DEV-07 댓글과 반응
+
+`GET/POST /v1/posts/:id/comments`, `GET/PATCH/DELETE /v1/comments/:id`, `PUT/DELETE /v1/reactions/:kind/:id`, `GET /v1/me/activity`, `GET /v1/stamps`, `POST /v1/reports`의 `kind=comment`를 사용한다. 답글 목록은 댓글 목록의 `parent` UUID를 받는다. 댓글 쓰기는 `Idempotency-Key`, 수정·삭제는 `If-Match`를 요구한다. 목록에는 `likes`, `liked`, `commentCount`가 포함된다. [상세 계약](COMMENT_GUIDE.md)

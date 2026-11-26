@@ -72,7 +72,8 @@ if (mode==='worker') {
   process.on('SIGTERM',stop);
   try {
     let ready=false;
-    for (let i=0;i<80;i++) {
+    const deadline=Date.now()+90_000;
+    while (Date.now()<deadline) {
       if (child.exitCode!==null||stopped) break;
       if (await reachable()) {ready=true;break;}
       await sleep(250);

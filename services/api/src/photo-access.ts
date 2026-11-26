@@ -6,19 +6,11 @@ import { openCursor,pageSize,sealCursor } from './paging.ts';
 import { query } from './platform.ts';
 import type { Database,Env,SqlValue } from './platform.ts';
 
-export type PhotoContext='post'|'profile'|'album';
+import { acceptedComment,memberVisible,postVisible,requestTime,viewer,visibilityCte } from './visibility.ts';
+
+export type PhotoContext='post'|'profile'|'album'|'comment';
 export interface PhotoParent {kind:PhotoContext;id:string}
 export type PhotoVariant='full'|'thumb';
-
-export function memberVisible(member: string) {
-  return `EXISTS(SELECT 1 FROM members m WHERE m.id=${member} AND m.state='active')
-    AND NOT EXISTS(SELECT 1 FROM blocks WHERE blocker_id=? AND blocked_id=${member})
-    AND NOT EXISTS(SELECT 1 FROM blocks WHERE blocked_id=? AND blocker_id=${member})`;
-}
-
-export function postVisible(alias: string) {
-  return `${alias}.state='approved' AND ${alias}.publish_at<=? AND ${memberVisible(alias+'.author_id')}`;
-}
 
 const albumJoin=`FROM content_items c JOIN photo_albums a ON a.content_id=c.id
  JOIN official_identities o ON o.id=a.identity_id AND o.member_id=c.publisher_id`;
@@ -54,6 +46,12 @@ export class PhotoAccess {
           WHERE p.id=? AND ${postVisible('p')}`,
         params:[parent.id,this.now,this.actor,this.actor],purpose:'post',
       };
+      case 'comment':return {
+        sql:`${visibilityCte} SELECT c.author_id AS owner,cm.media_id FROM comment_media cm
+          JOIN comments c ON c.id=cm.comment_id JOIN posts p ON p.id=c.post_id
+          WHERE c.id=? AND ${postVisible('p',viewer,requestTime)} AND ${acceptedComment('c')}`,
+        params:[this.actor,this.now,parent.id],purpose:'post',
+      };
       case 'profile':return {
         sql:`SELECT pr.member_id AS owner,pr.avatar_media_id AS media_id FROM member_profiles pr
           WHERE pr.member_id=? AND ${memberVisible('pr.member_id')}`,
@@ -78,8 +76,9 @@ export class PhotoAccess {
         JOIN media_reservations tr ON tr.id=t.id AND tr.owner_id=t.owner_id
         AND tr.purpose='thumbnail' AND tr.state IN ('approved','attached')`:''}
       WHERE m.id IN (SELECT value FROM json_each(?)) AND r.state IN ('approved','attached') AND r.purpose=?
+      AND r.comment_scope=? ${thumbnail?'AND tr.comment_scope=r.comment_scope':''}
       AND ${selected}.mime='image/jpeg' AND ${selected}.width IS NOT NULL AND ${selected}.height IS NOT NULL`,
-      ...source.params,JSON.stringify(ids),source.purpose).all<MediaRow&{root_id:string;width:number;height:number;version:number}>()).results;
+      ...source.params,JSON.stringify(ids),source.purpose,parent.kind==='comment'?1:0).all<MediaRow&{root_id:string;width:number;height:number;version:number}>()).results;
   }
 
   async grants(parent:PhotoParent,ids:readonly string[],variant:PhotoVariant,mode:'relay'|'direct',signer?: DirectSigner) {

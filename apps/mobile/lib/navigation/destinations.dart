@@ -205,8 +205,10 @@ final resourceId = RegExp(
 );
 
 class Destination {
-  const Destination(this.screen, [this.id]);
+  const Destination(this.screen, [this.id, this.comment]);
   final Screen screen;
   final String? id;
-  String get location => screen.location(id);
+  final String? comment;
+  String get location =>
+      '${screen.location(id)}${comment == null ? '' : '?comment=$comment'}';
 }

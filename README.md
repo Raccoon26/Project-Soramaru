@@ -90,3 +90,8 @@ Android 에뮬레이터에서는 `flutter run --dart-define=DEV_API_ORIGIN=http:
 [사진 업로드](MEDIA_UPLOAD_GUIDE.md) · [이미지 처리](IMAGE_PROCESSING_GUIDE.md) · [사진 권한](MEDIA_ACCESS_GUIDE.md) · [GALLERY](GALLERY_GUIDE.md) · [수명주기와 저장 비용](MEDIA_LIFECYCLE_GUIDE.md)
 
 로컬에서 `npm run db:migrate`, `node tools/photo-fixtures.mjs`를 실행하고 개발용 Firebase Auth Emulator와 Worker에 연결한다. 도구와 합성 데이터만으로 검증하며 운영 계정·버킷 또는 결제 활성화 승인이 별도로 필요하다.
+
+
+## DEV-07 댓글과 반응
+
+[댓글](COMMENT_GUIDE.md) · [좋아요와 비용](REACTION_GUIDE.md) · [스탬프](STAMP_GUIDE.md) · [이벤트](INTERACTION_EVENT_GUIDE.md). `npm run db:migrate`로 로컬 v9를 적용한다.

@@ -19,6 +19,7 @@ const documents = [
   'FAN_COMMUNITY_GUIDE.md', 'POST_LIFECYCLE_GUIDE.md', 'LOCAL_DRAFT_GUIDE.md', 'MODERATION_GUIDE.md',
   'AUTHENTICATION_GUIDE.md', 'FIREBASE_EMULATOR_GUIDE.md', 'SESSION_MANAGEMENT_GUIDE.md', 'MEMBER_LIFECYCLE_GUIDE.md',
   'MEDIA_UPLOAD_GUIDE.md', 'IMAGE_PROCESSING_GUIDE.md', 'MEDIA_ACCESS_GUIDE.md', 'GALLERY_GUIDE.md', 'MEDIA_LIFECYCLE_GUIDE.md',
+  'COMMENT_GUIDE.md', 'REACTION_GUIDE.md', 'STAMP_GUIDE.md', 'INTERACTION_EVENT_GUIDE.md',
 ];
 const rows = (filename, pattern) =>
   read(filename).split(/\r?\n/).filter((line) => pattern.test(line))

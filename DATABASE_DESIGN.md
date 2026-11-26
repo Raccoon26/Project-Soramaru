@@ -71,3 +71,8 @@ v7은 posts 본문 열을 UTF-8 바이트 CHECK로 교체하고 순위와 반복
 ## DEV-06 사진 관계
 
 v8은 예약의 목적·예상 SHA·썸네일 부모·격리 정산 상태와 객체의 너비·높이를 추가한다. `photo_albums`와 `photo_album_items`는 공식 정체성 및 권리 분류와 0~99 앨범 순서를 강제한다. 게시물 쓰기에서 유효한 같은 소유자의 승인 JPEG와 썸네일 쌍을 확인하고 `post_media`·태그·Outbox를 함께 기록한다. 프로필은 별도 avatar 목적과 버전으로 저장한다. [마이그레이션](DATABASE_MIGRATION_GUIDE.md)
+
+
+## DEV-07 댓글과 반응
+
+v9은 `stamp_sets`, `stamp_items`, `comment_media`를 추가하고 신고 종류에 comment를 포함한다. `media_reservations.comment_scope`는 기존 JPEG 예약 목적을 재사용하면서 댓글과 게시물 사이를 분리한다. `comments_thread` 및 반응·활동 인덱스가 페이지와 집계를 지원한다. [마이그레이션](DATABASE_MIGRATION_GUIDE.md)

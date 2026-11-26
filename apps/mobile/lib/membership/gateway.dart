@@ -25,6 +25,7 @@ class MembershipFailure implements Exception {
     'cost_limited' => '現在、利用できる機能を制限しています。',
     'maintenance' => 'ただいまメンテナンス中です。',
     'policy_changed' => '最新の規約をご確認ください。',
+    'invalid_comment_length' => 'コメントは1,000文字までです。複雑な文字は短くしてください。',
     'invalid_post_length' => '本文は10,000文字までです。複雑な文字は短くしてください。',
     'content_rejected' => '投稿できない文字やリンクが含まれています。本文をご確認ください。',
     'not_found' => 'この投稿またはプロフィールは表示できません。',
@@ -260,10 +261,16 @@ class LoopbackMembership implements MembershipGateway, PhotoGateway {
         target.hasScheme ||
         target.hasFragment ||
         !RegExp(
-          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36})?|members/[0-9a-f-]{36}|tags/popular|reports|uploads(?:/[0-9a-f-]{36}(?:/complete)?)?|gallery(?:/[0-9a-f-]{36})?|media/grants|me/blocks/[0-9a-f-]{36})$',
+          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms|/activity)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36}(?:/comments)?)?|comments/[0-9a-f-]{36}|reactions/(?:post|comment)/[0-9a-f-]{36}|stamps|members/[0-9a-f-]{36}|tags/popular|reports|uploads(?:/[0-9a-f-]{36}(?:/complete)?)?|gallery(?:/[0-9a-f-]{36})?|media/grants|me/blocks/[0-9a-f-]{36})$',
         ).hasMatch(target.path) ||
         (target.hasQuery &&
-            !{'/v1/posts', '/v1/gallery'}.contains(target.path))) {
+            !{
+              '/v1/posts',
+              '/v1/gallery',
+              '/v1/me/activity',
+            }.contains(target.path) &&
+            !RegExp(r'^/v1/posts/[0-9a-f-]{36}/comments$')
+                .hasMatch(target.path))) {
       throw ArgumentError('Unknown membership API path');
     }
     return _send(

@@ -33,7 +33,7 @@ export function photoTarget(path:string) {
 type Target=NonNullable<ReturnType<typeof photoTarget>>;
 
 function context(kind:unknown,id:unknown):PhotoParent {
-  if((kind!=='post'&&kind!=='profile'&&kind!=='album')||typeof id!=='string'||!isId(id)) {
+  if((kind!=='post'&&kind!=='profile'&&kind!=='album'&&kind!=='comment')||typeof id!=='string'||!isId(id)) {
     throw new HttpError(400,'invalid_request');
   }
   return {kind,id};
@@ -72,7 +72,7 @@ export async function photoBytes(r:Request,max:number) {
 }
 
 function status(row:Reservation) {
-  return {id:row.id,state:row.state,expiresAt:row.expires_at,purpose:row.purpose};
+  return {id:row.id,state:row.state,expiresAt:row.expires_at,purpose:row.comment_scope&&row.purpose==='post'?'comment':row.purpose};
 }
 
 export async function handlePhoto(request:Request,url:URL,target:Target,env:Env,deps:MembershipDependencies,
@@ -130,15 +130,15 @@ export async function handlePhoto(request:Request,url:URL,target:Target,env:Env,
   const store=new MediaStore(env,clock,undefined,undefined,{member:actor.id,id:actor.sessionId,validSince:token.validSince??0});
   if(target.kind==='reserve') {
     const b=await readJson(request);
-    if(typeof b.purpose!=='string'||!Object.hasOwn(photoLimits,b.purpose)||typeof b.bytes!=='number'||
+    if(typeof b.purpose!=='string'||(b.purpose!=='comment'&&!Object.hasOwn(photoLimits,b.purpose))||typeof b.bytes!=='number'||
         typeof b.sha256!=='string'||!/^[a-f0-9]{64}$/.test(b.sha256)||b.mime!=='image/jpeg') throw new HttpError(400,'invalid_request');
-    const purpose=b.purpose as PhotoPurpose;
+    const purpose=(b.purpose==='comment'?'post':b.purpose) as PhotoPurpose;
     const variant=b.variantOf??null;
     if((purpose==='thumbnail')!==(variant!==null)||variant!==null&&(typeof variant!=='string'||!isId(variant))) throw new HttpError(400,'invalid_request');
     if(purpose==='gallery'&&member.role!=='artist'&&member.role!=='content_operator') throw new HttpError(403,'access_denied');
     if(b.bytes>photoLimits[purpose][1]) throw new HttpError(413,'payload_too_large');
     return {data:status(await store.reserve(actor,request.headers.get('idempotency-key')??'',b.bytes,'image/jpeg',{
-      purpose,hash:b.sha256,variant,
+      purpose,hash:b.sha256,variant,comment:b.purpose==='comment',
     })),status:201};
   }
   if(!id) throw new HttpError(404,'not_found');
