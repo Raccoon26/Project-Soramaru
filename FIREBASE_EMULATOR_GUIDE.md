@@ -19,3 +19,7 @@ npm run auth:emulator
 로컬 서비스가 실행 중이면 `apps/mobile`에서 `flutter test --no-pub test/membership_test.dart --dart-define=DEV04_LIVE=true`로 Dart 게이트웨이를 실연결 시험한다. 로컬 Noto Sans JP 글꼴을 `.local/downloads/NotoSansJP.ttf`에 두고 기존 E: Flutter SDK를 사용하면 `--dart-define=DEV04_CAPTURE=true`로 PNG 5장을 생성한다. 두 검사는 기본 자동 테스트와 별도다.
 
 도구 전용 npm 검사에서 Firebase CLI 15.37.0의 중간 심각도 의존성 항목 14개를 관찰했다. CLI는 공용 HTTP 접근이나 운영 자격 없이 합성 Auth 시험에만 사용한다. 업스트림 수정 버전이 공개되면 잠금 버전을 갱신하고 통합 시험을 다시 실행한다.
+
+## DEV-08 연동
+
+2026-11-27 레지스트리 최신 Firebase CLI는 15.37.0이다. 개발 도구에 중간 항목 14개가 남아 있다. 직접 의존성은 firebase-tools이며 Pub/Sub, OpenTelemetry, archiver, glob, minimatch, UUID 등을 포함한 나머지는 전이 패키지다. 네 가지 직접 advisory ID는 GHSA-8988-4f7v-96qf, GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249, GHSA-w5hq-g745-h8pq다. Auth Emulator는 루프백 및 합성 데이터 전용이며 운영 의존성 검사와 분리한다. 호환 업그레이드가 확인될 때 재검사한다.

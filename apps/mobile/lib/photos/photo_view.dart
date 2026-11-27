@@ -269,24 +269,35 @@ void showPhotoViewer(
   BuildContext context,
   Community api,
   List<PhotoPointer> photos,
-  int initial,
-) {
+  int initial, {
+  void Function(BuildContext, PhotoPointer)? onSave,
+}) {
   if (photos.isEmpty) return;
   unawaited(
     Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => PhotoViewer(api, photos, initial: initial),
+        builder: (_) =>
+            PhotoViewer(api, photos, initial: initial, onSave: onSave),
       ),
     ),
   );
 }
 
 class PhotoViewer extends StatefulWidget {
-  const PhotoViewer(this.api, this.photos, {this.initial = 0, super.key});
+  const PhotoViewer(
+    this.api,
+    this.photos, {
+    this.initial = 0,
+    this.onSave,
+    this.onMore,
+    super.key,
+  });
   final Community api;
   final List<PhotoPointer> photos;
   final int initial;
+  final void Function(BuildContext, PhotoPointer)? onSave;
+  final VoidCallback? onMore;
   @override
   State<PhotoViewer> createState() => _PhotoViewerState();
 }
@@ -389,7 +400,22 @@ class _PhotoViewerState extends State<PhotoViewer> {
                   ),
                 ),
               ),
-              const SizedBox(width: 48),
+              if (widget.onMore != null)
+                IconButton(
+                  color: Colors.white,
+                  tooltip: 'アルバムの操作',
+                  onPressed: widget.onMore,
+                  icon: const Icon(Icons.more_horiz),
+                ),
+              if (widget.onSave case final save?)
+                IconButton(
+                  color: Colors.white,
+                  tooltip: '写真をコレクションに追加',
+                  onPressed: () => save(context, widget.photos[index]),
+                  icon: const Icon(Icons.collections_bookmark_outlined),
+                )
+              else
+                const SizedBox(width: 48),
             ],
           ),
           Expanded(

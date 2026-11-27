@@ -4,8 +4,23 @@ export function memberVisible(member: string, viewer = '?') {
     AND NOT EXISTS(SELECT 1 FROM blocks WHERE blocked_id=${viewer} AND blocker_id=${member})`;
 }
 
+export function officialKind(member:string,active:string,at:string) {
+  return `CASE WHEN ${active}=1 AND EXISTS(SELECT 1 FROM role_grants g WHERE g.member_id=${member} AND g.role='artist'
+    AND g.revoked_at IS NULL AND g.starts_at<=${at} AND (g.ends_at IS NULL OR g.ends_at>${at}))
+    THEN 'artist' WHEN ${active}=1 AND NOT EXISTS(SELECT 1 FROM role_grants g WHERE g.member_id=${member} AND g.role='administrator'
+    AND g.revoked_at IS NULL AND g.starts_at<=${at} AND (g.ends_at IS NULL OR g.ends_at>${at}))
+    AND EXISTS(SELECT 1 FROM content_operator_grants g WHERE g.member_id=${member} AND g.revoked_at IS NULL
+    AND g.starts_at<=${at} AND g.ends_at>${at}) THEN 'official' ELSE 'member' END`;
+}
+
 export function postVisible(alias: string, viewer = '?', now = '?') {
   return `${alias}.state='approved' AND ${alias}.publish_at<=${now} AND ${memberVisible(alias+'.author_id',viewer)}`;
+}
+
+export function postPhotoVisible(parent:string,media:string,asViewer='?',at='?') {
+  return `NOT EXISTS (SELECT 1 FROM post_photo_origins origin WHERE origin.media_id=${media} AND origin.post_id<>${parent}
+    AND NOT EXISTS (SELECT 1 FROM post_media source JOIN posts origin_post ON origin_post.id=source.post_id
+      WHERE source.post_id=origin.post_id AND source.media_id=origin.media_id AND ${postVisible('origin_post',asViewer,at)}))`;
 }
 
 export const viewer = '(SELECT actor FROM visibility)';

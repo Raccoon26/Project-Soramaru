@@ -77,3 +77,7 @@ DEV-02는 기존 Workers 상태 API와 공용 타입을 그대로 사용한다. 
 ## DEV-07 댓글과 반응
 
 `GET/POST /v1/posts/:id/comments`, `GET/PATCH/DELETE /v1/comments/:id`, `PUT/DELETE /v1/reactions/:kind/:id`, `GET /v1/me/activity`, `GET /v1/stamps`, `POST /v1/reports`의 `kind=comment`를 사용한다. 답글 목록은 댓글 목록의 `parent` UUID를 받는다. 댓글 쓰기는 `Idempotency-Key`, 수정·삭제는 `If-Match`를 요구한다. 목록에는 `likes`, `liked`, `commentCount`가 포함된다. [상세 계약](COMMENT_GUIDE.md)
+
+## DEV-08 계약
+
+보호 GET은 /v1/search, /v1/tags/popular, /v1/members/official, /v1/favorites, /v1/collections, /v1/members/:id/collections, /v1/gallery/:id/collectors, /v1/me/recents, /v1/me/blocks다. 검색은 q와 kind(post/member/tag/album), limit, cursor를 받는다. 즐겨찾기는 /v1/favorites/:type/:id의 GET/PUT/DELETE를 사용한다. 컬렉션 생성은 POST /v1/collections의 UUID와 title, 폴더는 /v1/collections/:id의 GET/PATCH/DELETE, 항목은 /entries의 POST/PATCH로 처리한다. 최근은 /v1/me/recents/:albumId의 PUT/DELETE 및 목록 DELETE를 제공한다. DELETE /v1/me/blocks/:memberId는 자기 방향 차단만 해제한다. 앨범 인용은 게시물 작성의 quoteAlbumId 또는 목록의 album 필터로 연결한다. [컬렉션](COLLECTION_GUIDE.md)

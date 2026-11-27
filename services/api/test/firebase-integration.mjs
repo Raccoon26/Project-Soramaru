@@ -159,7 +159,7 @@ try {
   const fixtureBytes=syntheticJpeg(128,84,25);
   const media=await fixtureUpload('post',fixtureBytes);
   await fixtureUpload('thumbnail',syntheticJpeg(64,42,25),media);
-  const withPhoto=await create(auth,{body:'写真の投稿',tags:[],attachments:[media]});
+  const withPhoto=await create(auth,{body:'写真の投稿',tags:['光の記録'],attachments:[media]});
   assert.equal(withPhoto.status,201);
   const photoPath='/v1/media/'+media+'?parent=post&parent_id='+withPhoto.result.id+'&variant=full';
   const fromSecond=await fetch(base+photoPath,{headers:{
@@ -179,6 +179,59 @@ try {
   const thirdAuth={token:thirdToken,session:thirdIssued.result.sessionToken};
   assert.equal((await api('/v1/me/terms',{...thirdAuth,method:'POST',body:{version:policy.version,documents}})).status,200);
   assert.equal((await api('/v1/me',{...thirdAuth,method:'PATCH',headers:{'if-match':'"1"'},body:{nickname:'合成の読者'}})).status,200);
+  const favorite=async(actor,kind,id,method='PUT')=>api('/v1/favorites/'+kind+'/'+id,{...actor,method});
+  const search=async(actor,kind,q)=>api('/v1/search?kind='+kind+'&q='+encodeURIComponent(q),actor);
+  const makeFolder=async(actor,title)=>{
+    const result=await api('/v1/collections',{...actor,method:'POST',body:{id:globalThis.crypto.randomUUID(),title}});
+    assert.equal(result.status,201,JSON.stringify(result));
+    return result.result.id;
+  };
+  const save=async(actor,folder,body)=>api('/v1/collections/'+folder+'/entries',{...actor,method:'POST',body});
+  const album=syntheticAlbum;
+  const discoveryPost=withPhoto.result.id;
+  const secondFolder=await makeFolder(outsiderAuth,'写真のしおり');
+  assert.equal((await search(outsiderAuth,'post','真の投')).result.items[0].id,discoveryPost);
+  assert.equal((await search(outsiderAuth,'tag','ｃａ')).result.items[0].label.toLowerCase(),'cafe');
+  assert.equal((await search(thirdAuth,'member','青い')).result.items[0].id,outsiderIssue.result.profile.id);
+  assert.equal((await search(outsiderAuth,'album','色のさ')).result.items[0].id,album);
+  const sameFavorite=await Promise.all([favorite(outsiderAuth,'post',discoveryPost),favorite(outsiderAuth,'post',discoveryPost)]);
+  assert.ok(sameFavorite.every(value=>value.result.saved===true&&value.result.createdAt===sameFavorite[0].result.createdAt));
+  assert.equal((await favorite(outsiderAuth,'member',post.result.authorId)).result.saved,true);
+  assert.equal((await favorite(outsiderAuth,'tag',withPhoto.result.tags[0].id)).result.saved,true);
+  assert.equal((await api('/v1/favorites?kind=post',outsiderAuth)).result.items.length,1);
+  const favoriteFeed=(await api('/v1/posts?category=favorites',outsiderAuth)).result.items;
+  assert.equal(favoriteFeed.filter(row=>row.id===discoveryPost).length,1);
+  const saved=await save(outsiderAuth,secondFolder,{postId:discoveryPost,photoId:media});
+  assert.equal(saved.status,201,JSON.stringify(saved));
+  assert.equal((await save(outsiderAuth,secondFolder,{postId:discoveryPost,photoId:media})).result.id,saved.result.id);
+  const whole=await save(outsiderAuth,secondFolder,{postId:discoveryPost});
+  assert.equal(whole.status,201);
+  const moveTo=await makeFolder(outsiderAuth,'投稿の保管');
+  assert.equal((await api('/v1/collections/'+secondFolder+'/entries',{...outsiderAuth,method:'PATCH',
+    body:{ids:[whole.result.id],destination:moveTo}})).result.moved,1);
+  assert.equal((await api('/v1/collections/'+moveTo,outsiderAuth)).result.items[0].postId,discoveryPost);
+  assert.equal((await save(thirdAuth,secondFolder,{postId:discoveryPost})).status,404);
+  assert.equal((await api('/v1/collections/'+secondFolder,thirdAuth)).status,404);
+  assert.equal((await api('/v1/me',{...outsiderAuth,method:'PATCH',headers:{'if-match':'"2"'},
+    body:{nickname:'青いノート',collectionPublic:true}})).status,200);
+  assert.equal((await api('/v1/collections/'+secondFolder,thirdAuth)).result.items[0].photoId,media);
+  assert.equal((await api('/v1/collections/'+secondFolder,outsiderAuth)).result.items[0].attachable,false);
+  const ownerFolder=await makeFolder(auth,'作った写真');
+  assert.equal((await save(auth,ownerFolder,{postId:discoveryPost,photoId:media})).status,201);
+  assert.equal((await api('/v1/collections/'+ownerFolder,auth)).result.items[0].attachable,true);
+  const reused=await create(auth,{body:'同じ写真の参照',tags:[],attachments:[media]});
+  assert.equal(reused.status,201,JSON.stringify(reused));
+  assert.equal((await save(outsiderAuth,secondFolder,{albumId:album})).status,201);
+  assert.equal((await api('/v1/gallery/'+album+'/collectors',thirdAuth)).result.items[0].id,outsiderIssue.result.profile.id);
+  const albumQuote=await create(thirdAuth,{body:'',tags:[],quoteAlbumId:album});
+  assert.equal(albumQuote.status,201,JSON.stringify(albumQuote));
+  assert.equal(albumQuote.result.albumQuote.id,album);
+  assert.equal((await api('/v1/posts?album='+album,thirdAuth)).result.items[0].id,albumQuote.result.id);
+  assert.equal((await api('/v1/me/recents/'+album,{...outsiderAuth,method:'PUT'})).status,204);
+  assert.equal((await api('/v1/me/recents',outsiderAuth)).result.items[0].id,album);
+  assert.equal((await api('/v1/me/recents',thirdAuth)).result.items.length,0);
+  assert.equal((await api('/v1/me/recents/'+album,{...outsiderAuth,method:'DELETE'})).status,204);
+
   const commentPath='/v1/posts/'+withPhoto.result.id+'/comments';
   const root=await api(commentPath,{...outsiderAuth,method:'POST',headers:{'idempotency-key':random()},body:{body:'合成のコメント'}});
   assert.equal(root.status,201);
@@ -210,9 +263,22 @@ try {
   assert.equal((await api('/v1/posts/'+quoted.result.id,outsiderAuth)).result.quote,null);
   assert.equal((await api('/v1/posts/'+quoted.result.id,auth)).status,404);
   assert.equal((await api(photoPath,outsiderAuth)).status,404);
+  assert.equal((await api('/v1/favorites?kind=post',outsiderAuth)).result.items.length,0);
+  assert.equal((await api('/v1/collections/'+secondFolder,thirdAuth)).result.items.some(row=>row.photoId===media),false);
+  assert.equal((await api('/v1/me/blocks',outsiderAuth)).result.items[0].id,post.result.authorId);
+  assert.equal((await api('/v1/me/blocks/'+outsiderIssue.result.profile.id,{...auth,method:'PUT'})).status,204);
+  assert.equal((await api('/v1/me/blocks/'+post.result.authorId,{...outsiderAuth,method:'DELETE'})).status,204);
+  assert.equal((await api('/v1/posts/'+discoveryPost,outsiderAuth)).status,404);
+  assert.equal((await search(outsiderAuth,'post','真の投')).result.items.length,0);
+  assert.equal((await api('/v1/me/blocks/'+outsiderIssue.result.profile.id,{...auth,method:'DELETE'})).status,204);
+  assert.equal((await fetch(base+photoPath,{headers:{authorization:'Bearer '+outsiderAuth.token,'x-app-session':outsiderAuth.session}})).status,200);
   assert.equal((await api('/v1/posts/'+withPhoto.result.id,{...auth,method:'DELETE',
     headers:{'if-match':'"1"','idempotency-key':random()}})).status,204);
   assert.equal((await api(photoPath,auth)).status,404);
+  const reusedPath='/v1/media/'+media+'?parent=post&parent_id='+reused.result.id+'&variant=full';
+  assert.equal((await api(reusedPath,outsiderAuth)).status,404);
+  assert.deepEqual((await api('/v1/posts/'+reused.result.id,outsiderAuth)).result.photos,[]);
+  assert.equal((await create(auth,{body:'利用できない写真の再登録',tags:[],attachments:[media]})).status,409);
 const seeded=await api('/v1/gallery/'+syntheticAlbum,outsiderAuth);
   assert.equal(seeded.status,200);
   assert.equal(seeded.result.photos.length,3);
@@ -251,7 +317,7 @@ const seeded=await api('/v1/gallery/'+syntheticAlbum,outsiderAuth);
   assert.equal((await api('/v1/me/session',{
     token:fresh.result.idToken,session:freshApp.result.sessionToken,
   })).status,401);
-  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation, member community and R2 photo visibility and three-member interactions passed');
+  globalThis.console.log('Firebase / workerd / D1: concurrent enrollment, OOB and renewals, account isolation, profile conflicts, password-reset, device revocation, community, R2 photo visibility, three-member interactions, discovery, folder privacy and original-photo revocation passed');
 } finally {
   await worker.close();
 }

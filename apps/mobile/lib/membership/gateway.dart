@@ -261,16 +261,22 @@ class LoopbackMembership implements MembershipGateway, PhotoGateway {
         target.hasScheme ||
         target.hasFragment ||
         !RegExp(
-          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms|/activity)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36}(?:/comments)?)?|comments/[0-9a-f-]{36}|reactions/(?:post|comment)/[0-9a-f-]{36}|stamps|members/[0-9a-f-]{36}|tags/popular|reports|uploads(?:/[0-9a-f-]{36}(?:/complete)?)?|gallery(?:/[0-9a-f-]{36})?|media/grants|me/blocks/[0-9a-f-]{36})$',
+          r'^/v1/(?:auth/(?:policies|email)|me(?:/session|/terms|/activity)?|sessions(?:/renew|/[0-9a-f-]{36})?|posts(?:/[0-9a-f-]{36}(?:/comments)?)?|comments/[0-9a-f-]{36}|reactions/(?:post|comment)/[0-9a-f-]{36}|stamps|members/(?:official|[0-9a-f-]{36}(?:/collections)?)|search|tags/popular|reports|uploads(?:/[0-9a-f-]{36}(?:/complete)?)?|gallery(?:/[0-9a-f-]{36}(?:/collectors)?)?|media/grants|me/blocks(?:/[0-9a-f-]{36})?|favorites(?:/(?:post|member|tag)/[0-9a-f-]{36})?|collections(?:/[0-9a-f-]{36}(?:/entries)?)?|me/recents(?:/[0-9a-f-]{36})?)$',
         ).hasMatch(target.path) ||
         (target.hasQuery &&
             !{
               '/v1/posts',
               '/v1/gallery',
               '/v1/me/activity',
+              '/v1/search',
+              '/v1/members/official',
+              '/v1/me/blocks',
+              '/v1/me/recents',
+              '/v1/favorites',
             }.contains(target.path) &&
-            !RegExp(r'^/v1/posts/[0-9a-f-]{36}/comments$')
-                .hasMatch(target.path))) {
+            !RegExp(
+              r'^/v1/(?:posts/[0-9a-f-]{36}/comments|gallery/[0-9a-f-]{36}/collectors|collections/[0-9a-f-]{36})$',
+            ).hasMatch(target.path))) {
       throw ArgumentError('Unknown membership API path');
     }
     return _send(

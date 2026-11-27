@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:material_ui/material_ui.dart';
 
 import '../community/community.dart';
+import '../community/collections.dart';
+import '../community/discovery.dart';
+import '../community/drafts.dart';
 import '../community/forum.dart';
 import '../membership/gateway.dart';
 import '../navigation/destinations.dart';
@@ -76,6 +79,20 @@ class _GalleryPageState extends State<GalleryPage> {
     child: CustomScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
+        SliverToBoxAdapter(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.search),
+              label: const Text('アルバムを検索'),
+              onPressed: () => showDiscovery(
+                context,
+                'GALLERY',
+                SearchPage(widget.navigation, galleryOnly: true),
+              ),
+            ),
+          ),
+        ),
         SliverPadding(
           padding: const EdgeInsets.all(Space.edge),
           sliver: SliverGrid.builder(
@@ -171,16 +188,78 @@ class GalleryAlbum extends StatefulWidget {
 class _GalleryAlbumState extends State<GalleryAlbum> {
   late final Community api = widget.navigation.community!;
   late Future<Json> result;
+  bool recorded = false;
 
   @override
   void initState() {
     super.initState();
-    result = api.read('/v1/gallery/${widget.id}');
+    result = _album();
     api.addListener(_reload);
   }
 
+  Future<Json> _album() async {
+    final owner = api.owner;
+    final data = await api.read('/v1/gallery/${widget.id}');
+    if (mounted && owner == api.owner && !recorded && !widget.viewer) {
+      recorded = true;
+      unawaited(api.recordAlbum(widget.id));
+    }
+    return data;
+  }
+
   void _reload() {
-    if (mounted) setState(() => result = api.read('/v1/gallery/${widget.id}'));
+    if (mounted) setState(() => result = _album());
+  }
+
+  void _controls(BuildContext context) {
+    final id = widget.id;
+    final nav = widget.navigation;
+    void related() =>
+        showDiscovery(context, 'このコンテンツの投稿', ForumList(nav, album: id));
+    void collectors() => showDiscovery(
+      context,
+      'コレクションしているユーザー',
+      DiscoveryPage(
+        api,
+        '/v1/gallery/$id/collectors',
+        row: (ctx, row) => ListTile(
+          title: Text(row['label'] as String),
+          onTap: () {
+            Navigator.of(ctx, rootNavigator: true).pop();
+            openSearchItem(nav, 'member', row['id'] as String);
+          },
+        ),
+      ),
+    );
+    final items = <String, VoidCallback>{
+      'アルバムをコレクションに追加': () => saveReference(context, api, {'albumId': id}),
+      'アルバムを引用投稿': () => openComposer(nav, Draft.fresh(quoteAlbumId: id)),
+      'シェア': () => discoveryMessage(context, '会員向け共有リンクは未設定です。'),
+      'このコンテンツの投稿を見る': related,
+      'コレクションしているユーザー': collectors,
+    };
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheet) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final item in items.entries)
+              ListTile(
+                title: Text(item.key),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  item.value();
+                },
+              ),
+            ListTile(
+              title: const Text('キャンセル'),
+              onTap: () => Navigator.pop(sheet),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -209,6 +288,11 @@ class _GalleryAlbumState extends State<GalleryAlbum> {
           api,
           photos,
           initial: widget.navigation.albumPhotoIndex,
+          onMore: () => _controls(context),
+          onSave: (context, photo) => saveReference(context, api, {
+            'albumId': widget.id,
+            'photoId': photo.id,
+          }),
         );
       }
       return ListView(
@@ -234,32 +318,7 @@ class _GalleryAlbumState extends State<GalleryAlbum> {
             ),
           TextButton(
             child: const Text('アルバムの操作'),
-            onPressed: () => showModalBottomSheet<void>(
-              context: context,
-              builder: (_) => const SafeArea(
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ListTile(
-                        title: Text('アルバムをコレクションに追加'),
-                        subtitle: Text('準備中'),
-                      ),
-                      ListTile(title: Text('アルバムを引用投稿'), subtitle: Text('準備中')),
-                      ListTile(title: Text('シェア'), subtitle: Text('共有リンクは準備中')),
-                      ListTile(
-                        title: Text('このコンテンツの投稿を見る'),
-                        subtitle: Text('準備中'),
-                      ),
-                      ListTile(
-                        title: Text('コレクションしているユーザー'),
-                        subtitle: Text('準備中'),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+            onPressed: () => _controls(context),
           ),
         ],
       );

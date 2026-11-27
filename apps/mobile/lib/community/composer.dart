@@ -15,6 +15,7 @@ import '../ui/design.dart';
 import 'community.dart';
 import 'drafts.dart';
 import 'forum.dart';
+import 'tag_picker.dart';
 
 String postText(String raw) => raw.replaceAll(RegExp(r'\r\n?'), '\n');
 int postLength(String raw) => postText(raw).characters.length;
@@ -53,7 +54,12 @@ class _ForumComposerState extends State<ForumComposer>
 
   void _quote() {
     final id = seed.quoteId;
-    quotePreview = id == null ? null : api.read('/v1/posts/$id');
+    final album = seed.quoteAlbumId;
+    quotePreview = id != null
+        ? api.read('/v1/posts/$id')
+        : album == null
+        ? null
+        : api.read('/v1/gallery/$album');
   }
 
   Draft _capture() => Draft(
@@ -65,6 +71,7 @@ class _ForumComposerState extends State<ForumComposer>
     postId: seed.postId,
     version: seed.version,
     quoteId: seed.quoteId,
+    quoteAlbumId: seed.quoteAlbumId,
     requestKey: pending,
     attachments: [...attachments],
   );
@@ -116,12 +123,26 @@ class _ForumComposerState extends State<ForumComposer>
       setState(() => status = 'タグは48文字以内、10個まで追加できます。');
       return;
     }
-    if (tags.any((t) => t.toLowerCase() == value.toLowerCase())) {
+    if (tags.any((t) => tagKey(t) == tagKey(value))) {
       setState(() => status = '同じタグが追加されています。');
       return;
     }
     tags.add(value);
     tag.clear();
+    _changed();
+  }
+
+  Future<void> _selectTags() async {
+    final navigation = widget.navigation;
+    navigation.choosingTags = [...tags];
+    final selected = await navigation.open<List<String>>(
+      const Destination(Screen.pickTag),
+    );
+    navigation.choosingTags = null;
+    if (!mounted || selected == null || api.owner != owner) return;
+    tags
+      ..clear()
+      ..addAll(selected);
     _changed();
   }
 
@@ -152,7 +173,10 @@ class _ForumComposerState extends State<ForumComposer>
   Future<void> _submit() async {
     if (busy) return;
     final text = postText(body.text);
-    if ((text.trim().isEmpty && seed.quoteId == null && attachments.isEmpty) ||
+    if ((text.trim().isEmpty &&
+            seed.quoteId == null &&
+            seed.quoteAlbumId == null &&
+            attachments.isEmpty) ||
         postLength(text) > 10000 ||
         utf8.encode(text).length > 360000 ||
         text.characters.any((c) => c.runes.length > 64)) {
@@ -198,6 +222,8 @@ class _ForumComposerState extends State<ForumComposer>
           'tags': tags,
           if (api.hasPhotos) 'attachments': photos,
           if (!editing) 'quoteId': seed.quoteId,
+          if (!editing && seed.quoteAlbumId != null)
+            'quoteAlbumId': seed.quoteAlbumId,
         },
       );
       dirty = false;
@@ -277,12 +303,16 @@ class _ForumComposerState extends State<ForumComposer>
               onPressed: busy ? null : _chooseDraft,
               child: const Text('下書き一覧'),
             ),
+            TextButton(
+              onPressed: locked ? null : _selectTags,
+              child: const Text('タグを探す'),
+            ),
             if (quotePreview case final preview?)
               FutureBuilder<Json>(
                 future: preview,
                 builder: (context, snapshot) => Text(
                   snapshot.hasData
-                      ? '引用元　${snapshot.requireData['body']}'
+                      ? '引用元　${snapshot.requireData[seed.quoteAlbumId == null ? 'body' : 'title']}'
                       : '引用元の投稿は表示できません',
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,

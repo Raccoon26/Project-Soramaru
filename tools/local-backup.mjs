@@ -14,7 +14,8 @@ const expectedTables = ['schema_migrations',
   'posts','comments','tags','post_tags','blocks','reactions','badge_catalog','badge_awards','applied_badges',
   'media_capacity','media_owner_capacity','media_reservations','media_objects','post_media','content_items',
   'usage_windows','feature_flags','rate_limits','scheduled_jobs','outbox','idempotency_keys','audit_events',
-  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports','photo_albums','photo_album_items','stamp_sets','stamp_items','comment_media'];
+  'notifications','notification_reads','policy_acceptances','content_operator_grants','membership_audit','community_reports','photo_albums','photo_album_items','stamp_sets','stamp_items','comment_media','search_documents','favorite_posts','favorite_members','favorite_tags',
+  'collection_folders','collection_entries','recent_albums','tag_discovery_snapshot','discovery_backfill','post_photo_origins'];
 const crypt = globalThis.crypto;
 const buffer = globalThis.Buffer;
 
@@ -25,7 +26,7 @@ function identifier(name) {
 
 export async function captureRows(db) {
   const rows = await db.batch(expectedTables.map(table =>
-    db.prepare('SELECT * FROM ' + identifier(table) + ' ORDER BY rowid LIMIT ' + (maxRows + 1))));
+    db.prepare('SELECT '+(table==='search_documents'?'rowid,*':'*')+' FROM ' + identifier(table) + ' ORDER BY rowid LIMIT ' + (maxRows + 1))));
   if (rows.some(row => row.results.length > maxRows)) throw new Error('Synthetic backup row limit exceeded');
   const schema = await db.prepare(`SELECT name,type,sql FROM sqlite_schema
     WHERE sql IS NOT NULL AND substr(name,1,1) <> '_' AND substr(name,1,7) <> 'sqlite_'
@@ -93,6 +94,7 @@ export async function restore(db,envelope,key,journal) {
   const create = sql.filter(statement => /^CREATE TABLE /.test(statement)&&
     (!statement.startsWith('CREATE TABLE community_reports(')||statement.includes("'member','comment'")));
   const alter=sql.filter(statement=>/^ALTER TABLE /.test(statement)&&!/^ALTER TABLE community_reports RENAME TO /.test(statement));
+  const virtual = sql.filter(statement => /^CREATE VIRTUAL TABLE /.test(statement));
   const attach = sql.filter(statement => /^CREATE (?:(?:UNIQUE )?INDEX|TRIGGER) /.test(statement));
   const records = expectedTables.flatMap(table => {
     const rows = saved.tables[table];
@@ -138,7 +140,10 @@ export async function restore(db,envelope,key,journal) {
     ...create.map(statement => db.prepare(statement)),
     ...alter.map(statement=>db.prepare(statement)),
     db.prepare('PRAGMA defer_foreign_keys=ON'),
-    ...records,...attach.map(statement => db.prepare(statement)),...deletion,
+    ...virtual.map(statement=>db.prepare(statement)),...records,
+    db.prepare("INSERT INTO search_fts(rowid,body) SELECT rowid,body FROM search_documents WHERE kind='post'"),
+    db.prepare("INSERT INTO album_fts(rowid,body) SELECT rowid,body FROM search_documents WHERE kind='album'"),
+    ...attach.map(statement => db.prepare(statement)),...deletion,
   ]);
   return saved.at;
 }

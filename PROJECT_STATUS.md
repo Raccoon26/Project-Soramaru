@@ -75,3 +75,9 @@ DEV-06은 사진 선택·정제·암호화 초안, D1 예약·R2 검역·승인,
 ## DEV-07 댓글과 반응
 
 DEV-06 **COMPLETE**는 [PR #8](https://github.com/Raccoon26/Project-Soramaru/pull/8)의 main 병합 커밋 `3b43688db33dd4f7788077fa3752b511d65f8b20` 및 [최종 CI](https://github.com/Raccoon26/Project-Soramaru/actions/runs/45638088621)로 확인했다. DEV-07은 댓글·답글·반응과 사진·스탬프, 활동, 신고, 알림 이벤트를 추가한다. 현재 검증 범위는 [테스트 보고](TEST_REPORT.md), 공개 변경은 [DEV-07 PR](https://github.com/Raccoon26/Project-Soramaru/pulls?q=is%3Apr+head%3Adev%2Fdev-07-comments-reactions)에 기록한다.
+
+## DEV-08 검색과 컬렉션
+
+DEV-07 **COMPLETE**는 [PR #9](https://github.com/Raccoon26/Project-Soramaru/pull/9) 병합 커밋 `7eb9aa18a020f6dc53b15762f1124d56f5517abf`에서 확인했다. DEV-08은 전용 브랜치에서 개발하고 있으며 검증과 GitHub 병합이 완료된 후 완료 판정을 기록한다. [검색](SEARCH_GUIDE.md) · [컬렉션](COLLECTION_GUIDE.md) · [테스트 보고](TEST_REPORT.md)
+
+로컬 검증에서 API 54건, Flutter 163건, 별도 Firebase 및 Flutter 실연결 시험, D1 v10·R2, 일본어 검색 비교, Android 디버그 서명을 확인했다. 운영 D1 tokenizer·CPU·청구량과 실기기, iOS 빌드, 권리 승인은 출시 조건이다. 기존 공개 이력에서 보호된 원본이나 비밀 값이 발견되지 않았으며 원본 54개 해시가 일치했다.

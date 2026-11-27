@@ -158,3 +158,21 @@ Firebase CLI의 직접 도구 릴리스와 간접 알림을 분리했다. 감사
 재현은 `npm run lint`, `npm test`, `npm run test:membership`, `npm run db:migrate`, `npm run smoke:api`, `npm run build:api`, `npm run check:repo`다. Flutter는 `dart format --output=none --set-exit-if-changed lib test`, `flutter analyze --no-pub`, `flutter test --no-pub`를 실행한다. `DEV04_LIVE=true`로 별도 Flutter Gateway 시험을 실행하며 `DEV07_PREVIEW=true`는 합성 프리뷰 4개를 로컬 경로에 저장한다.
 
 수정한 문제는 Firebase 인증기의 Windows 콜드 스타트 준비 시간, 이메일 정규화, workerd의 빈 PUT 본문 처리, 모바일 경로 허용 목록, 실제 댓글 링크의 부모 확인과 회귀 호환이다.
+
+## DEV-08 검증
+
+| 검사 | 결과 |
+|---|---|
+| 기존 기준 | 변경 전 Flutter 149건, API 47건 재통과 |
+| Flutter | 163건 통과. 14건이 신규이며 320/390/430/768dp와 100/130/200% 조합, 일본어 검색, 이력 암호화·격리 및 기존 Golden을 포함한다. 별도로 DEV08_LOCAL 1건에서 실제 Firebase Auth, Workers, D1과 R2의 사진 쓰기·승인·열람 및 검색·즐겨찾기를 검증했다. |
+| D1 및 API | 전체 54건 통과(신규 7건). 로컬 빈 설치와 v9→v10, v1~9 체크섬, 56개 논리 테이블, FTS 그림자 8개. v10 복원 시 두 FTS를 재구축하고 복원 후 삭제된 게시물을 검색에서 제외한다. |
+| 회원 시나리오 | 합성 회원 3명과 합성 공식 앨범으로 사진·태그 게시, 일본어 검색, 즐겨찾기 동시 등록, 합집합, 사진과 게시물 저장·이동, 공개 권한, 앨범 인용·관련 글·공개 컬렉터, 양방향 차단·해제, 원본 삭제, 재첨부 차단을 확인했다. 100건 최근 제한과 원본 권리 철회를 별도 회귀 시험했다. |
+| 검색·보존 | 2,000/10,000/50,000 합성 문서의 prefix·FTS5·자체 n-gram 비교, 읽기/쓰기·파일 크기·P50/P95 기록. 전역 숨김·차단·삭제 경계, 완료 Outbox와 활성 작업 분리, 검색 중단과 차단 해제 확인. |
+| 로컬 빌드 | API 린트·타입·빌드, Flutter format/analyze, Flutter 번들, Android ARM64 디버그 APK v2 서명 및 ARM64 출시 AOT 확인. 개발 플래그를 켠 릴리스에서 디버그 양성 4개 표지의 미포함, 평문 HTTP 및 백업 차단을 확인했다. |
+| 공개 검사 | check:repo로 125개 ID와 화면 연결 확인. 원본 54개 SHA-256, 원본 제외 규칙, 공개 Git 이력, Gitleaks 및 actionlint를 확인했다. |
+| 의존성 | 저장소 npm 전체 및 운영 0건, Pub OSV 95개 패키지 0건. MIT unorm_dart 0.3.2를 고정했다. Firebase CLI 15.37.0 개발 전용의 중간 등급 14개는 남아 있다. |
+| 검증 범위 | 운영 D1의 FTS 권한·CPU·실제 청구, iOS 빌드·실기기·권리 승인은 출시 단계에 남긴다. 운영 자원과 추가 서버 비용은 발생하지 않았다. |
+
+현재 앨범의 권리 상태 대신 다른 앨범 상태가 영향을 줄 수 있던 최근 조회의 SQL 별칭을 수정했다. D1 식 트리 한도에 걸린 컬렉션 가시성은 계정별 검증 CTE로 나눴다. 빈 PUT의 로컬 스트림 처리, 외래키 연쇄 삭제의 행 수, 첫 사진 출처의 동시 시각 처리에도 회귀 시험을 추가했다.
+
+로컬 대표 화면 6장은 .local/dev-08-preview에 보관한다. 디버그 APK는 apps/mobile/build/app/outputs/flutter-apk/app-debug.apk에서 확인한다. [검색 측정](SEARCH_GUIDE.md) · [보존](DATA_RETENTION_GUIDE.md)

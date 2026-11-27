@@ -11,6 +11,7 @@ class Community extends ChangeNotifier {
   final DraftRepository drafts;
   final Map<String, Future<Json>> _reads = {};
   bool _closed = false;
+  final Map<String, DateTime> _albumVisits = {};
   int revision = 0;
   final photoMemory = PhotoMemory();
   bool get hasPhotos => account.gateway is PhotoGateway;
@@ -30,6 +31,22 @@ class Community extends ChangeNotifier {
     );
   }
 
+  Future<void> recordAlbum(String id) async {
+    final now = DateTime.now();
+    final previous = _albumVisits[id];
+    if (previous != null &&
+        now.difference(previous) < const Duration(minutes: 5)) {
+      return;
+    }
+    _albumVisits[id] = now;
+    if (_albumVisits.length > 100) _albumVisits.remove(_albumVisits.keys.first);
+    try {
+      await write('/v1/me/recents/$id', 'PUT');
+    } catch (_) {
+      if (_albumVisits[id] == now) _albumVisits.remove(id);
+    }
+  }
+
   Future<Json> write(
     String path,
     String method, {
@@ -42,7 +59,14 @@ class Community extends ChangeNotifier {
       body: body,
       headers: headers,
     );
-    if (!_closed && path != '/v1/reports') {
+    if (method == 'DELETE' && path == '/v1/me/recents') _albumVisits.clear();
+    if (method == 'DELETE' && path.startsWith('/v1/me/recents/')) {
+      _albumVisits.remove(path.split('/').last);
+    }
+    if (!_closed &&
+        path != '/v1/reports' &&
+        path != '/v1/me/recents' &&
+        !path.startsWith('/v1/me/recents/')) {
       revision++;
       photoMemory.clear();
       _reads.clear();
@@ -54,6 +78,7 @@ class Community extends ChangeNotifier {
   @override
   void dispose() {
     _closed = true;
+    _albumVisits.clear();
     photoMemory.clear();
     _reads.clear();
     super.dispose();

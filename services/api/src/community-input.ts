@@ -31,19 +31,21 @@ export function moderate(text: string) {
 }
 
 export function postInput(value: Record<string,unknown>, edit: boolean) {
-  if (Object.keys(value).some(k=>!['body','tags','attachments',...(edit?[]:['quoteId'])].includes(k))||
+  if (Object.keys(value).some(k=>!['body','tags','attachments',...(edit?[]:['quoteId','quoteAlbumId'])].includes(k))||
       typeof value.body!=='string'||!Array.isArray(value.tags)||value.tags.length>10) {
     throw new HttpError(400,'invalid_request');
   }
   const body=value.body.replace(/\r\n?/g,'\n');
   const quoteId=value.quoteId??null;
   if (quoteId!==null&&(typeof quoteId!=='string'||!isId(quoteId))) throw new HttpError(400,'invalid_request');
+  const quoteAlbumId=value.quoteAlbumId??null;
+  if (quoteAlbumId!==null&&(quoteId!==null||typeof quoteAlbumId!=='string'||!isId(quoteAlbumId))) throw new HttpError(400,'invalid_request');
   const attachments=value.attachments??null;
   if(attachments!==null&&(!Array.isArray(attachments)||attachments.length>10||
       !attachments.every((v:unknown)=>typeof v==='string'&&isId(v))||new Set(attachments).size!==attachments.length)) {
     throw new HttpError(400,'invalid_request');
   }
-  if ((!body.trim()&&!edit&&quoteId===null&&(!attachments||attachments.length===0))||encoder.encode(body).length>postBodyBytes) {
+  if ((!body.trim()&&!edit&&quoteId===null&&quoteAlbumId===null&&(!attachments||attachments.length===0))||encoder.encode(body).length>postBodyBytes) {
     throw new HttpError(body.trim()?413:400,body.trim()?'payload_too_large':'invalid_request');
   }
   let size=0;
@@ -52,5 +54,5 @@ export function postInput(value: Record<string,unknown>, edit: boolean) {
   }
   const tags=[...new Map(value.tags.map(tag=>tagValue(tag)).map(tag=>[tag.normalized,tag])).values()];
   moderate(body);
-  return {body,tags,quoteId,attachments:attachments as string[]|null};
+  return {body,tags,quoteId,quoteAlbumId,attachments:attachments as string[]|null};
 }
