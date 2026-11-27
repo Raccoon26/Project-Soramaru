@@ -59,7 +59,13 @@ class DiscoveryFixture extends Fixture {
     if (uri.path == '/v1/members/official') {
       return {
         'items': [
-          {'id': testId, 'label': '合成アーティスト'},
+          {
+            'id': testId,
+            'label': '合成アーティスト',
+            'category': 'artist',
+            'biography': '合成の紹介',
+            'saved': 0,
+          },
         ],
       };
     }
@@ -129,6 +135,29 @@ Future<void> snapshot(WidgetTester tester, String name) async {
 }
 
 void main() {
+  test('favorite writes refresh only saved surfaces', () async {
+    final account = MembershipController(DiscoveryFixture(), Vault());
+    await account.signIn(mailbox, samplePassword);
+    final drafts = DraftRepository(
+      DraftDatabase(NativeDatabase.memory()),
+      Keys(),
+    );
+    final api = Community(account, drafts);
+    var globalRefresh = 0;
+    var favoritesRefresh = 0;
+    api.addListener(() => globalRefresh++);
+    api.favoritesUpdates.addListener(() => favoritesRefresh++);
+    try {
+      await api.write('/v1/favorites/post/$testId', 'PUT');
+      expect(favoritesRefresh, 1);
+      expect(globalRefresh, 0);
+    } finally {
+      api.dispose();
+      account.dispose();
+      await drafts.close();
+    }
+  });
+
   test('Japanese compatibility normalization preserves the underlying search intent', () {
     expect(normalizeSearch(' ＣＡＦＥ　ｶﾞｸ  한글🇯🇵 '), 'cafe がく 한글🇯🇵');
     expect(tagKey('#Ｃａｆｅ'), 'cafe');
@@ -234,6 +263,9 @@ void main() {
         await show(FavoriteList(nav));
         expect(find.text('お気に入りの項目'), findsOneWidget);
         if (capture) await snapshot(tester, '02-favorites');
+        await show(OfficialUsersPage(nav));
+        expect(find.text('合成アーティスト'), findsOneWidget);
+        if (capture) await snapshot(tester, '07-official-users');
         await show(FolderList(nav));
         expect(find.text('春のしおり'), findsOneWidget);
         if (capture) await snapshot(tester, '03-folders');

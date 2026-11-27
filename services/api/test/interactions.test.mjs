@@ -41,7 +41,7 @@ async function verify(action) {
       query(DB,"INSERT INTO posts(id,author_id,body,state,created_at,updated_at,publish_at) VALUES (?,?,'合成投稿','approved',?,?,?)",p,a.id,base-100,base-100,base-100),
       query(DB,"INSERT INTO community_reports VALUES (?,?,'post',?,?,1,'other','fixture',?)",prior,b.id,p,a.id,now),
     ]);
-    assert.equal(await migrate(DB,files),10);
+    assert.equal(await migrate(DB,files),11);
     assert.equal((await query(DB,'SELECT detail FROM community_reports WHERE id=?',prior).first()).detail,'fixture');
     const app=createApi({clock:()=>now,log:event=>events.push(event),membership:{verify:async token=>tokens.get(token)??null,key,sendCode:async()=>{}}});
     async function request(member,path,method='GET',data,extra={}) {

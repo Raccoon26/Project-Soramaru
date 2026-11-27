@@ -199,6 +199,7 @@ class _DiscoveryPageState extends State<DiscoveryPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     widget.api.addListener(_reset);
+    widget.api.favoritesUpdates.addListener(_favoritesChanged);
     _reset();
   }
 
@@ -217,6 +218,16 @@ class _DiscoveryPageState extends State<DiscoveryPage>
   }
 
   void _reset() => unawaited(_load(reset: true));
+  void _favoritesChanged() {
+    if (const {
+      '/v1/favorites',
+      '/v1/tags/popular',
+      '/v1/members/official',
+    }.contains(widget.path)) {
+      _reset();
+    }
+  }
+
   Future<void> _load({bool reset = false}) async {
     if (!reset && (busy || next == null)) return;
     final id = ++generation;
@@ -256,6 +267,7 @@ class _DiscoveryPageState extends State<DiscoveryPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     widget.api.removeListener(_reset);
+    widget.api.favoritesUpdates.removeListener(_favoritesChanged);
     super.dispose();
   }
 
@@ -598,6 +610,15 @@ class _FavoriteListState extends State<FavoriteList> {
       header: Wrap(
         spacing: Space.sm,
         children: [
+          if (kind == 'member')
+            TextButton(
+              onPressed: () => showDiscovery(
+                context,
+                '公式ユーザー一覧',
+                OfficialUsersPage(widget.navigation),
+              ),
+              child: const Text('公式ユーザー一覧'),
+            ),
           for (final type in ['member', 'tag', 'post'])
             discoveryChoice(
               searchLabels[type]!,
@@ -618,6 +639,56 @@ class _FavoriteListState extends State<FavoriteList> {
           key: ValueKey(row['id']),
         ),
       ),
+    );
+  }
+}
+
+class OfficialUsersPage extends StatelessWidget {
+  const OfficialUsersPage(this.navigation, {super.key});
+  final NavigationController navigation;
+
+  @override
+  Widget build(BuildContext context) {
+    final api = navigation.community!;
+    return DiscoveryPage(
+      api,
+      '/v1/members/official',
+      empty: '表示できる公式ユーザーはいません。',
+      row: (context, row) {
+        final member = row['id'] as String;
+        final media = row['avatarMediaId'] as String?;
+        return ListTile(
+          leading: SizedBox.square(
+            dimension: 44,
+            child: ClipOval(
+              child: media != null && api.hasPhotos
+                  ? RemotePhoto(
+                      api,
+                      PhotoPointer('profile', member, media),
+                      fit: BoxFit.cover,
+                    )
+                  : const Icon(Icons.verified_outlined),
+            ),
+          ),
+          title: Text(row['label'] as String),
+          subtitle: Text(
+            [
+              row['category'] == 'artist' ? 'そらまる' : '公式',
+              row['biography'] as String? ?? '',
+            ].where((text) => text.isNotEmpty).join('\n'),
+          ),
+          onTap: () => openSearchItem(navigation, 'member', member),
+          trailing: member == api.owner
+              ? null
+              : FavoriteToggle(
+                  api,
+                  'member',
+                  member,
+                  initial: row['saved'] == 1,
+                  key: ValueKey(member),
+                ),
+        );
+      },
     );
   }
 }
@@ -685,6 +756,7 @@ class _RecentAlbumShortcutState extends State<RecentAlbumShortcut> {
     super.initState();
     request = api.read('/v1/me/recents', {'limit': '3'});
     api.addListener(_reload);
+    api.recentUpdates.addListener(_reload);
   }
 
   void _reload() {
@@ -696,6 +768,7 @@ class _RecentAlbumShortcutState extends State<RecentAlbumShortcut> {
   @override
   void dispose() {
     api.removeListener(_reload);
+    api.recentUpdates.removeListener(_reload);
     super.dispose();
   }
 

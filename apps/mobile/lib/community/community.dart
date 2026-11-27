@@ -12,7 +12,8 @@ class Community extends ChangeNotifier {
   final Map<String, Future<Json>> _reads = {};
   bool _closed = false;
   final Map<String, DateTime> _albumVisits = {};
-  int revision = 0;
+  final favoritesUpdates = ValueNotifier(0);
+  final recentUpdates = ValueNotifier(0);
   final photoMemory = PhotoMemory();
   bool get hasPhotos => account.gateway is PhotoGateway;
   String? get owner => account.memberId;
@@ -22,13 +23,13 @@ class Community extends ChangeNotifier {
       path: path,
       queryParameters: params.isEmpty ? null : params,
     ).toString();
-    final generation = revision;
-    return _reads.putIfAbsent(
-      endpoint,
-      () => account.community(endpoint).whenComplete(() {
-        if (revision == generation) _reads.remove(endpoint);
-      }),
-    );
+    return _reads.putIfAbsent(endpoint, () {
+      late final Future<Json> pending;
+      pending = account.community(endpoint).whenComplete(() {
+        if (identical(_reads[endpoint], pending)) _reads.remove(endpoint);
+      });
+      return pending;
+    });
   }
 
   Future<void> recordAlbum(String id) async {
@@ -63,11 +64,20 @@ class Community extends ChangeNotifier {
     if (method == 'DELETE' && path.startsWith('/v1/me/recents/')) {
       _albumVisits.remove(path.split('/').last);
     }
-    if (!_closed &&
-        path != '/v1/reports' &&
-        path != '/v1/me/recents' &&
-        !path.startsWith('/v1/me/recents/')) {
-      revision++;
+    if (_closed || path == '/v1/reports') return value;
+    if (path.startsWith('/v1/favorites/')) {
+      _reads.removeWhere(
+        (key, _) =>
+            key.startsWith('/v1/favorites') ||
+            key.startsWith('/v1/posts?category=favorites') ||
+            key.startsWith('/v1/tags/popular') ||
+            key.startsWith('/v1/members/official'),
+      );
+      favoritesUpdates.value++;
+    } else if (path == '/v1/me/recents' || path.startsWith('/v1/me/recents/')) {
+      _reads.removeWhere((key, _) => key.startsWith('/v1/me/recents'));
+      recentUpdates.value++;
+    } else {
       photoMemory.clear();
       _reads.clear();
       notifyListeners();
@@ -79,6 +89,8 @@ class Community extends ChangeNotifier {
   void dispose() {
     _closed = true;
     _albumVisits.clear();
+    favoritesUpdates.dispose();
+    recentUpdates.dispose();
     photoMemory.clear();
     _reads.clear();
     super.dispose();

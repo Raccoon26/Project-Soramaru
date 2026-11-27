@@ -22,4 +22,4 @@ npm run auth:emulator
 
 ## DEV-08 연동
 
-2026-11-27 레지스트리 최신 Firebase CLI는 15.37.0이다. 개발 도구에 중간 항목 14개가 남아 있다. 직접 의존성은 firebase-tools이며 Pub/Sub, OpenTelemetry, archiver, glob, minimatch, UUID 등을 포함한 나머지는 전이 패키지다. 네 가지 직접 advisory ID는 GHSA-8988-4f7v-96qf, GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249, GHSA-w5hq-g745-h8pq다. Auth Emulator는 루프백 및 합성 데이터 전용이며 운영 의존성 검사와 분리한다. 호환 업그레이드가 확인될 때 재검사한다.
+2026-11-27 레지스트리 최신 Firebase CLI는 15.37.0이다. 개발 도구에 중간 항목 14개가 남아 있다. 직접 의존성은 firebase-tools이며 Pub/Sub, OpenTelemetry, archiver, glob, minimatch, UUID 등을 포함한 나머지는 전이 패키지다. 네 가지 원문 advisory ID는 GHSA-8988-4f7v-96qf, GHSA-3g3m-2fjr-6pw4, GHSA-g3hv-75wg-m249, GHSA-w5hq-g745-h8pq다. Auth Emulator는 루프백 및 합성 데이터 전용이며 운영 의존성 검사와 분리한다. 호환 업그레이드가 확인될 때 재검사한다.

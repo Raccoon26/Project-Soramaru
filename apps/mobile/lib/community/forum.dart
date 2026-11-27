@@ -80,10 +80,17 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     scroll.addListener(_nearEnd);
     api.addListener(_invalidate);
+    api.favoritesUpdates.addListener(_favoritesChanged);
     unawaited(_load(reset: true, clear: true));
   }
 
   void _invalidate() => unawaited(_load(reset: true, clear: true));
+  void _favoritesChanged() {
+    if (category == FeedCategory.favorites || category == FeedCategory.tags) {
+      _invalidate();
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _invalidate();
@@ -153,6 +160,7 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     api.removeListener(_invalidate);
+    api.favoritesUpdates.removeListener(_favoritesChanged);
     scroll.removeListener(_nearEnd);
     if (!widget.root) scroll.dispose();
     super.dispose();

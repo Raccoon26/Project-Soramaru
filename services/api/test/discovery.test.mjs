@@ -3,7 +3,7 @@ import test from 'node:test';
 import { migrate,migrations,simulator } from '../../../tools/local-backend.mjs';
 import { createApi } from '../src/index.ts';
 import { backup,backupKey,restore } from '../../../tools/local-backup.mjs';
-import { seedPhotos,syntheticAlbum } from '../../../tools/photo-fixtures.mjs';
+import { seedPhotos,syntheticAlbum,syntheticJpeg } from '../../../tools/photo-fixtures.mjs';
 import { CommunityStore } from '../src/community-store.ts';
 import { Collections } from '../src/collections.ts';
 import { Discovery,refreshPopular } from '../src/discovery.ts';
@@ -12,7 +12,9 @@ import { eventStatements } from '../src/jobs.ts';
 import { MembershipStore } from '../src/membership-store.ts';
 import { policyDocuments,policyVersion } from '../src/membership-policy.ts';
 import { cursorKey } from '../src/paging.ts';
-import { query } from '../src/platform.ts';
+import { digest,query } from '../src/platform.ts';
+import { MediaStore } from '../src/media.ts';
+import { inspectPhoto } from '../src/photo-format.ts';
 import { backfillSearch,indexedText,normalizeSearch } from '../src/search-index.ts';
 
 const clock=1_795_578_000_000;
@@ -34,7 +36,7 @@ async function withDb(action) {
       query(db,"INSERT INTO members(id,auth_uid,member_no,state,joined_at,updated_at) VALUES (?,NULL,'LOCALOLD08','active',0,0)",legacy),
       query(db,"INSERT INTO member_profiles(member_id,nickname,updated_at,configured_at) VALUES (?,'柊の記録',0,0)",legacy),
     ]);
-    assert.equal(await migrate(db,files),10);
+    assert.equal(await migrate(db,files),11);
     assert.equal((await query(db,'PRAGMA foreign_key_check').all()).results.length,0);
     const signing=await cursorKey(crypt.getRandomValues(new Uint8Array(32)));
     const manager=new MembershipStore(db,clock,signing);
@@ -176,7 +178,7 @@ test('search request throttling and paused discovery preserve member safety oper
   assert.equal((await call('/v1/me/blocks/'+other.actor,'DELETE')).status,204);
 }));
 
-test('v10 backup rebuilds trigram and applies deletion before the restored search is enabled',()=>withDb(async({db,enroll,signing})=>{
+test('backup rebuilds trigram and applies deletion before the restored search is enabled',()=>withDb(async({db,enroll,signing})=>{
   const author=await enroll('復元の著者');
   const reader=await enroll('復元の読者');
   const visible=await author.store.save(null,{body:'北風の続報を記録',tags:[]},key(),null);
@@ -197,6 +199,10 @@ test('recent albums cap one hundred and hide previous results after rights withd
   const env={APP_ENV:'test',DB:db,PRIVATE_MEDIA:await runtime.getR2Bucket('PRIVATE_MEDIA'),QUARANTINE:await runtime.getR2Bucket('QUARANTINE')};
   const official=await seedPhotos(env,clock-10);
   const source=await query(db,'SELECT identity_id FROM photo_albums WHERE content_id=?',syntheticAlbum).first();
+  const published=(await reader.search.official(params({}))).items[0];
+  assert.equal(published.id,official.artist);
+  assert.equal(published.identityId,source.identity_id);
+  assert.equal(published.category,'artist');
   const ids=Array.from({length:100},id);
   for(let i=0;i<ids.length;i+=20) await db.batch(ids.slice(i,i+20).flatMap((album,j)=>[
     query(db,"INSERT INTO content_items VALUES (?,?,'gallery','合成資料','approved','members',0,0,0,1)",album,official.artist),
@@ -216,4 +222,41 @@ test('recent albums cap one hundred and hide previous results after rights withd
   const later=new Collections(new CommunityStore(db,await reader.context(),clock+1000),signing);
   await later.clearRecent(null);
   assert.equal((await later.recent(params({}))).items.length,0);
+  await query(db,'UPDATE role_grants SET revoked_at=? WHERE member_id=? AND role=\'artist\'',clock,official.artist).run();
+  assert.equal((await reader.search.official(params({}))).items.length,0);
+}));
+
+test('detached photos finish R2 reclamation when saved references and origin records remain',()=>withDb(async({db,runtime,enroll})=>{
+  const author=await enroll('撮影の著者');
+  const reader=await enroll('写真の読者');
+  const env={APP_ENV:'test',DB:db,PRIVATE_MEDIA:await runtime.getR2Bucket('PRIVATE_MEDIA'),QUARANTINE:await runtime.getR2Bucket('QUARANTINE')};
+  const mediaStore=new MediaStore(env,()=>clock);
+  const uploader={id:author.actor,sessionId:author.store.actor.session.id,role:'member'};
+  const fixtures=[
+    ['post',syntheticJpeg(128,84)],
+    ['thumbnail',syntheticJpeg(64,42)],
+  ];
+  const photos=[];
+  for(const [purpose,bytes] of fixtures) {
+    const file=await mediaStore.reserve(uploader,key(),bytes.byteLength,'image/jpeg',{
+      purpose,hash:await digest(bytes),variant:photos[0]??null,
+    });
+    await mediaStore.quarantine(uploader,file.id,bytes);
+    await mediaStore.approve(uploader,file.id,async data=>inspectPhoto(data,purpose));
+    photos.push(file.id);
+  }
+  const [photo]=photos;
+  const post=await author.store.save(null,{body:'写真の保管テスト',tags:[],attachments:[photo]},key(),null);
+  const folder=id();
+  await reader.folders.create({id:folder,title:'元の写真'});
+  await reader.folders.add(folder,{postId:post.id,photoId:photo});
+  await assert.rejects(mediaStore.cancel(uploader,photo),{status:409});
+  await author.store.save(post.id,{body:'画像を外した投稿',tags:[],attachments:[]},key(),1);
+  assert.ok(await query(db,'SELECT post_id FROM post_photo_origins WHERE media_id=?',photo).first());
+  await mediaStore.cancel(uploader,photo);
+  assert.equal((await query(db,'SELECT state FROM media_reservations WHERE id=?',photo).first()).state,'cancelled');
+  assert.equal(await env.PRIVATE_MEDIA.head('objects/'+photo),null);
+  assert.equal(await query(db,'SELECT 1 FROM post_photo_origins WHERE media_id=?',photo).first(),null);
+  assert.deepEqual((await reader.folders.items(folder,params({}))).items,[]);
+  assert.equal((await query(db,'PRAGMA foreign_key_check').all()).results.length,0);
 }));

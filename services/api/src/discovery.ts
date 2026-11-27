@@ -135,9 +135,10 @@ export class Discovery {
     const cutoff=position?.cutoff??this.now;
     const rows=(await query(this.db,`${visibilityCte} SELECT m.id,o.display_name AS label,m.joined_at AS created,
       ${officialKind('m.id','o.active',requestTime)} AS category,
+      o.id AS identityId,pr.avatar_media_id AS avatarMediaId,coalesce(pr.biography,'') AS biography,
       EXISTS(SELECT 1 FROM favorite_members f WHERE f.owner_id=${viewer} AND f.target_id=m.id) AS saved
-      FROM official_identities o JOIN members m ON m.id=o.member_id
-      WHERE o.active=1 AND ${memberVisible('m.id',viewer)} AND ${actorGuard}
+      FROM official_identities o JOIN members m ON m.id=o.member_id LEFT JOIN member_profiles pr ON pr.member_id=m.id
+      WHERE o.active=1 AND o.id=(SELECT min(i.id) FROM official_identities i WHERE i.member_id=m.id AND i.active=1) AND ${memberVisible('m.id',viewer)} AND ${actorGuard}
       AND (${officialKind('m.id','o.active',requestTime)})<>'member' AND m.joined_at<=?
       ${position?'AND (m.joined_at,m.id)<(?,?)':''} ORDER BY m.joined_at DESC,m.id DESC LIMIT ?`,
     this.actor,this.now,...this.store.guard,cutoff,...(position?[position.created,position.id]:[]),limit+1)

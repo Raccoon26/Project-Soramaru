@@ -4,4 +4,4 @@ M07에서 게시물·사용자·태그를 따로 탐색한다. 유형별 FK와 �
 
 F01의 お気に入り는 직접 저장한 글, 저장한 작성자의 글, 저장한 태그가 달린 글의 합집합을 게시물당 한 번 표시한다. 일반 최신순 커서와 같은 가시성 요건을 적용한다. 삭제·차단·비활성 데이터는 즐겨찾기 데이터에 관계가 남아도 화면에서 숨긴다.
 
-`GET /v1/favorites?kind=post|member|tag`의 기본 페이지는 20개다. `GET/PUT/DELETE /v1/favorites/:type/:id`에 두 자격 증명을 사용한다. 공식 목록은 `GET /v1/members/official`에서 발행 정체성·활성 역할·차단을 검사한다.
+`GET /v1/favorites?kind=post|member|tag`의 기본 페이지는 20개다. `GET/PUT/DELETE /v1/favorites/:type/:id`에 두 자격 증명을 사용한다. 공식 사용자 목록은 M07의 사용자에서 진입한다. `GET /v1/members/official`에서 발행 정체성·활성 역할·차단을 검사하고 승인 표시 이름, 아바타 참조, 공개 소개와 저장 상태를 제공한다. 즐겨찾기 쓰기는 관련 목록만 갱신한다.

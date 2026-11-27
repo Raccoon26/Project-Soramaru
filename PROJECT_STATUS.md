@@ -78,6 +78,6 @@ DEV-06 **COMPLETE**는 [PR #8](https://github.com/Raccoon26/Project-Soramaru/pul
 
 ## DEV-08 검색과 컬렉션
 
-DEV-07 **COMPLETE**는 [PR #9](https://github.com/Raccoon26/Project-Soramaru/pull/9) 병합 커밋 `7eb9aa18a020f6dc53b15762f1124d56f5517abf`에서 확인했다. DEV-08은 전용 브랜치에서 개발하고 있으며 검증과 GitHub 병합이 완료된 후 완료 판정을 기록한다. [검색](SEARCH_GUIDE.md) · [컬렉션](COLLECTION_GUIDE.md) · [테스트 보고](TEST_REPORT.md)
+DEV-07 **COMPLETE**는 [PR #9](https://github.com/Raccoon26/Project-Soramaru/pull/9) 병합 커밋 `7eb9aa18a020f6dc53b15762f1124d56f5517abf`에서 확인했다. DEV-08의 병합과 최종 CI 증거는 [PR #10](https://github.com/Raccoon26/Project-Soramaru/pull/10)과 [main CI](https://github.com/Raccoon26/Project-Soramaru/actions?query=branch%3Amain)에서 확인한다. [검색](SEARCH_GUIDE.md) · [컬렉션](COLLECTION_GUIDE.md) · [테스트 보고](TEST_REPORT.md)
 
-로컬 검증에서 API 54건, Flutter 163건, 별도 Firebase 및 Flutter 실연결 시험, D1 v10·R2, 일본어 검색 비교, Android 디버그 서명을 확인했다. 운영 D1 tokenizer·CPU·청구량과 실기기, iOS 빌드, 권리 승인은 출시 조건이다. 기존 공개 이력에서 보호된 원본이나 비밀 값이 발견되지 않았으며 원본 54개 해시가 일치했다.
+로컬 검증에서 API 55건, Flutter 164건, 별도 Firebase 및 Flutter 실연결 시험, D1 v11·R2, 일본어 검색 비교, Android 디버그 서명을 확인했다. 운영 D1 tokenizer·CPU·청구량과 실기기, iOS 빌드, 권리 승인은 출시 조건이다. 기존 공개 이력에서 보호된 원본이나 비밀 값이 발견되지 않았으며 원본 54개 해시가 일치했다.

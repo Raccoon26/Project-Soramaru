@@ -64,7 +64,7 @@ export function checkEnvironment(env: Partial<Env> | undefined): Env {
   return { APP_ENV: env.APP_ENV, DB: env.DB, PRIVATE_MEDIA: env.PRIVATE_MEDIA, QUARANTINE: env.QUARANTINE };
 }
 
-export const schemaVersion = 10;
+export const schemaVersion = 11;
 
 export function query(db: Database, sql: string, ...params: SqlValue[]): Statement {
   const statement = db.prepare(sql);
