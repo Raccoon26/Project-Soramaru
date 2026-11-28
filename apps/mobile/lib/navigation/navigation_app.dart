@@ -154,6 +154,7 @@ class NavigationController {
   final MembershipController? realMembership;
   final Community? community;
   Draft? composing;
+  List<String>? choosingTags;
   SelectionRequest? selectingPhotos;
   int albumPhotoIndex = 0;
   final _rootKey = GlobalKey<NavigatorState>();
@@ -338,6 +339,7 @@ class NavigationController {
             Screen.comments,
             Screen.user,
             Screen.tagged,
+            Screen.folder,
             if (community?.hasPhotos == true) ...[Screen.album, Screen.photo],
           ].contains(screen)) {
         return id.length == 36 ? null : Screen.unavailable.pattern;

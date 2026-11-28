@@ -273,6 +273,10 @@ export class MediaStore {
     await this.env.QUARANTINE.delete(keyFor(row.id));
     await this.env.PRIVATE_MEDIA.delete(keyFor(row.id));
     const result = await db.batch([
+      query(db,`DELETE FROM collection_entries WHERE photo_id=? AND EXISTS
+        (SELECT 1 FROM media_reservations WHERE id=? AND state='deleting')`,row.id,row.id),
+      query(db,`DELETE FROM post_photo_origins WHERE media_id=? AND EXISTS
+        (SELECT 1 FROM media_reservations WHERE id=? AND state='deleting')`,row.id,row.id),
       query(db,`DELETE FROM media_objects WHERE id=? AND EXISTS
         (SELECT 1 FROM media_reservations WHERE id=? AND state='deleting')
         AND NOT EXISTS(SELECT 1 FROM media_objects WHERE variant_of=?)
@@ -282,10 +286,10 @@ export class MediaStore {
         AND NOT EXISTS(SELECT 1 FROM member_profiles WHERE avatar_media_id=?)`,row.id,row.id,row.id,row.id,row.id,row.id,row.id),
       query(db,`UPDATE media_reservations SET state=?,updated_at=? WHERE id=? AND state='deleting'`,disposition,now,row.id),
     ]);
-    if (result[1]?.meta.changes === 1 && disposition === 'expired') {
+    if (result.at(-1)?.meta.changes === 1 && disposition === 'expired') {
       await auditStatement(db,'expiry','completed',now,row.owner_id).run();
     }
-    return result[1]?.meta.changes === 1;
+    return result.at(-1)?.meta.changes === 1;
   }
 
   async expire(limit = 5) {

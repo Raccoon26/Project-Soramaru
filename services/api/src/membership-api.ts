@@ -56,8 +56,8 @@ export class ReadReservations {
 
 export async function admit(env: Env,now:number,scopes:readonly LimitScope[],units:number,
   operation:'read'|'write'|'essential'|'registration',
-  options:{rowsPerRequest?:number;extraWrites?:number;flags?:Parameters<Budget['admit']>[3]}={}) {
-  const gate=await new Budget(env.DB).admit(operation==='essential'?'essential':operation==='read'?'standard':'optional-write',{
+  options:{rowsPerRequest?:number;extraWrites?:number;flags?:Parameters<Budget['admit']>[3];priority?:'bulk'}={}) {
+  const gate=await new Budget(env.DB).admit(options.priority??(operation==='essential'?'essential':operation==='read'?'standard':'optional-write'),{
     requests:units,d1Reads:(options.rowsPerRequest??15)*units,d1Writes:scopes.length*2+(options.extraWrites??(operation==='read'?0:8)),d1IndexWrites:scopes.length+(options.extraWrites??0),
   },now,options.flags??(operation==='registration'?['registration_enabled']:[]));
   if (!gate.allowed) {

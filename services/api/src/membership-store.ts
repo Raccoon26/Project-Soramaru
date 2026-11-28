@@ -1,3 +1,4 @@
+import { indexedText } from './search-index.ts';
 import { HttpError } from './http.ts';
 import { digest,isId,query } from './platform.ts';
 import type { Database } from './platform.ts';
@@ -278,6 +279,7 @@ export class MembershipStore {
         this.now,ctx.member.id,version,ctx.session.id),
       query(db,`INSERT INTO membership_audit SELECT ?1,?2,'profile',?2,?3 WHERE changes()=1`,
         crypto.randomUUID(),ctx.member.id,this.now),
+      indexedText(db,'member',ctx.member.id,nickname,version+1,true),
     ]);
     if (rows[0]?.meta.changes!==1) throw new HttpError(409,'conflict');
   }

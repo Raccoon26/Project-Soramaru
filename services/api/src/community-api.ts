@@ -31,7 +31,7 @@ export function communityTarget(path: string) {
 
 type Target=NonNullable<ReturnType<typeof communityTarget>>;
 
-async function requireEmptyBody(request:Request) {
+export async function requireEmptyBody(request:Request) {
   const reader=request.body?.getReader();
   if(!reader) return;
   try {

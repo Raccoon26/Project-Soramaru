@@ -2,6 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../community/comments.dart';
+import '../community/collections.dart';
+import '../community/discovery.dart';
+import '../community/tag_picker.dart';
 import '../community/composer.dart';
 import '../community/forum.dart';
 import '../membership/controller.dart';
@@ -48,6 +51,8 @@ class NavigationPage extends StatelessWidget {
         id!,
         viewer: true,
       ),
+      Screen.pickTag when n.community != null && n.choosingTags != null =>
+        TagPicker(n.community!, n.choosingTags!),
       Screen.compose when n.community != null => ForumComposer(n, n.composing),
       Screen.compose => ComposePreview(
         onExit: n.back,
@@ -104,12 +109,21 @@ class NavigationPage extends StatelessWidget {
         case Screen.activity:
           return ForumActivity(n);
         case Screen.blocks:
-          return _list([const Text('ブロック一覧は準備中です。')]);
+          return managedBlocks(n);
         case Screen.notifications:
           return _list([const Text('通知は準備中です。')]);
         case Screen.tags:
+          return popularTags(n);
         case Screen.search:
-          return _list([const Text('人気のタグ・検索は準備中です。')]);
+          return SearchPage(n);
+        case Screen.favorites:
+          return FavoriteList(n);
+        case Screen.collections:
+          return FolderList(n);
+        case Screen.folder:
+          return FolderContents(n, id!);
+        case Screen.recent:
+          return RecentAlbums(n);
         default:
           break;
       }
@@ -172,6 +186,7 @@ class NavigationPage extends StatelessWidget {
           ),
         ]);
       case Screen.search:
+        if (membership != null) return _list([const Text('検索するにはログインしてください。')]);
         return _SearchPage(navigation: n);
       case Screen.pickTag:
         return _list([
@@ -248,6 +263,7 @@ class NavigationPage extends StatelessWidget {
           ),
           const SizedBox(height: Space.xl),
           _row(Screen.recent, icon: Icons.history),
+          if (n.community != null) RecentAlbumShortcut(n),
           _row(
             Screen.goods,
             icon: Icons.confirmation_number_outlined,

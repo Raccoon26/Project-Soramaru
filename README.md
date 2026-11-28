@@ -95,3 +95,7 @@ Android 에뮬레이터에서는 `flutter run --dart-define=DEV_API_ORIGIN=http:
 ## DEV-07 댓글과 반응
 
 [댓글](COMMENT_GUIDE.md) · [좋아요와 비용](REACTION_GUIDE.md) · [스탬프](STAMP_GUIDE.md) · [이벤트](INTERACTION_EVENT_GUIDE.md). `npm run db:migrate`로 로컬 v9를 적용한다.
+
+## DEV-08 탐색 기능
+
+개발용 자료로 일본어 검색, 인기 태그, 즐겨찾기, 앨범·사진 폴더, 최근 앨범 및 차단 해제를 실행한다. 검색 비교는 node tools/search-benchmark.mjs, 비용 모델은 node tools/model-discovery.mjs로 재현한다. [검색](SEARCH_GUIDE.md) · [컬렉션](COLLECTION_GUIDE.md) · [최근 열람](RECENT_CONTENT_GUIDE.md)

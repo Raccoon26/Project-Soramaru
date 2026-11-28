@@ -7,6 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:material_ui/material_ui.dart';
 
 import '../community/community.dart';
+import '../community/collections.dart';
 import '../ui/design.dart';
 import 'photo_jobs.dart';
 import 'photo_view.dart';
@@ -176,7 +177,27 @@ class _PhotoSelectionState extends State<PhotoSelection> {
                   ),
               ],
             ),
-            const Text('コレクションは準備中です。'),
+            if (widget.request.kind == 'post')
+              TextButton(
+                onPressed: processing || ids.length >= widget.request.limit
+                    ? null
+                    : () async {
+                        final owner = widget.api.owner;
+                        final photo = await selectCollectionPhoto(
+                          context,
+                          widget.api,
+                          ids,
+                        );
+                        if (mounted &&
+                            owner == widget.api.owner &&
+                            photo != null &&
+                            !ids.contains(photo) &&
+                            ids.length < widget.request.limit) {
+                          setState(() => ids.add(photo));
+                        }
+                      },
+                child: const Text('コレクション'),
+              ),
             if (processing)
               const LinearProgressIndicator(semanticsLabel: '写真を処理中'),
             if (message case final text?)
@@ -205,6 +226,13 @@ class _PhotoSelectionState extends State<PhotoSelection> {
                           id,
                         ),
                         fit: BoxFit.cover,
+                      )
+                    else if (isRemotePhoto(id))
+                      const Center(
+                        child: Icon(
+                          Icons.collections_outlined,
+                          semanticLabel: 'コレクションの写真',
+                        ),
                       )
                     else
                       LocalPhotoPreview(jobs, draft, id),

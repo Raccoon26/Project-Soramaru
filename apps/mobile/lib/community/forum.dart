@@ -11,6 +11,8 @@ import '../ui/controls.dart';
 import '../ui/design.dart';
 import '../ui/feedback.dart';
 import 'community.dart';
+import 'collections.dart';
+import 'discovery.dart';
 import 'drafts.dart';
 import 'reactions.dart';
 
@@ -44,12 +46,13 @@ class ForumList extends StatefulWidget {
     this.navigation, {
     this.author,
     this.tag,
+    this.album,
     this.root = false,
     this.header,
     super.key,
   });
   final NavigationController navigation;
-  final String? author, tag;
+  final String? author, tag, album;
   final bool root;
   final Widget? header;
   @override
@@ -66,6 +69,8 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
   List<Json> pinned = [];
   Object? error;
   String? cursor;
+  int? tagCaptured;
+  bool tagStale = false;
   bool loading = true;
   var sequence = 0;
 
@@ -75,10 +80,17 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     scroll.addListener(_nearEnd);
     api.addListener(_invalidate);
+    api.favoritesUpdates.addListener(_favoritesChanged);
     unawaited(_load(reset: true, clear: true));
   }
 
   void _invalidate() => unawaited(_load(reset: true, clear: true));
+  void _favoritesChanged() {
+    if (category == FeedCategory.favorites || category == FeedCategory.tags) {
+      _invalidate();
+    }
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _invalidate();
@@ -113,6 +125,7 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
               'category': category.name,
               'author': ?widget.author,
               'tag': ?widget.tag,
+              'album': ?widget.album,
               'cursor': ?cursor,
               'limit': '20',
             });
@@ -125,6 +138,8 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
         if (result['pinned'] case final List rows) {
           pinned = rows.whereType<Json>().toList();
         }
+        tagCaptured = result['capturedAt'] as int?;
+        tagStale = result['stale'] == true;
         for (final row in (result['items'] as List).whereType<Json>()) {
           posts[row['id'] as String] = row;
         }
@@ -145,6 +160,7 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     api.removeListener(_invalidate);
+    api.favoritesUpdates.removeListener(_favoritesChanged);
     scroll.removeListener(_nearEnd);
     if (!widget.root) scroll.dispose();
     super.dispose();
@@ -178,6 +194,23 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
             );
           }
           if (index <= rows.length) {
+            if (category == FeedCategory.tags) {
+              final tag = rows[index - 1];
+              return ListTile(
+                title: Text('#${tag['label']}'),
+                onTap: () => openSearchItem(
+                  widget.navigation,
+                  'tag',
+                  tag['id'] as String,
+                ),
+                trailing: FavoriteToggle(
+                  api,
+                  'tag',
+                  tag['id'] as String,
+                  initial: tag['saved'] == true,
+                ),
+              );
+            }
             return ForumCard(
               widget.navigation,
               rows[index - 1],
@@ -200,10 +233,18 @@ class _ForumListState extends State<ForumList> with WidgetsBindingObserver {
             return Padding(
               padding: const EdgeInsets.all(Space.edge),
               child: Text(switch (category) {
-                FeedCategory.favorites => 'お気に入りは準備中です。',
-                FeedCategory.tags => '人気のタグは準備中です。投稿のタグから一覧を開けます。',
+                FeedCategory.favorites => 'お気に入りに一致する投稿はありません。',
+                FeedCategory.tags => '表示できる人気のタグはありません。',
                 _ => '表示できる投稿はありません。',
               }),
+            );
+          }
+          if (category == FeedCategory.tags && tagCaptured != null) {
+            return Padding(
+              padding: const EdgeInsets.all(Space.edge),
+              child: Text(
+                '集計日時　${whenPosted(tagCaptured)}${tagStale ? "（更新が遅れています）" : ""}',
+              ),
             );
           }
           return const SizedBox.shrink();
@@ -274,6 +315,19 @@ class _ForumObjectState extends State<ForumObject> with WidgetsBindingObserver {
                 Text(row['nickname'] as String, style: TypeStyles.heading),
                 Text(row['biography'] as String),
                 if (widget.id != api.owner) ...[
+                  Wrap(
+                    children: [
+                      FavoriteToggle(api, 'member', widget.id),
+                      TextButton(
+                        onPressed: () => showDiscovery(
+                          context,
+                          'コレクション',
+                          FolderList(widget.navigation, owner: widget.id),
+                        ),
+                        child: const Text('コレクション'),
+                      ),
+                    ],
+                  ),
                   ActionButton(
                     'ユーザーを報告',
                     onPressed: () =>
@@ -316,6 +370,7 @@ class ForumCard extends StatelessWidget {
         author = post['authorId'] as String;
     final api = n.community!;
     final quote = post['quote'] as Json?;
+    final albumQuote = post['albumQuote'] as Json?;
     final tags = (post['tags'] as List).whereType<Json>();
     final photos = (post['photos'] as List? ?? [])
         .whereType<String>()
@@ -384,6 +439,7 @@ class ForumCard extends StatelessWidget {
                         postId: id,
                         attachments: photos.map((photo) => photo.id).toList(),
                         quoteId: post['quoteId'] as String?,
+                        quoteAlbumId: albumQuote?['id'] as String?,
                         version: post['version'] as int,
                       ),
                     );
@@ -425,6 +481,17 @@ class ForumCard extends StatelessWidget {
             ],
           ]),
         ),
+        if (detail)
+          Wrap(
+            children: [
+              FavoriteToggle(api, 'post', id),
+              TextButton.icon(
+                icon: const Icon(Icons.collections_bookmark_outlined),
+                onPressed: () => saveReference(context, api, {'postId': id}),
+                label: const Text('コレクションに追加'),
+              ),
+            ],
+          ),
         if (post.containsKey('commentCount'))
           Wrap(
             children: [
@@ -443,7 +510,16 @@ class ForumCard extends StatelessWidget {
             child: PhotoStrip(
               api,
               photos,
-              onOpen: (index) => showPhotoViewer(context, api, photos, index),
+              onOpen: (index) => showPhotoViewer(
+                context,
+                api,
+                photos,
+                index,
+                onSave: (context, photo) => saveReference(context, api, {
+                  'postId': id,
+                  'photoId': photo.id,
+                }),
+              ),
             ),
           ),
         if (tags.isNotEmpty)
@@ -460,6 +536,17 @@ class ForumCard extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        if (post['hasAlbumQuote'] == true)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Space.edge),
+            child: albumQuote == null
+                ? const Text('引用元のアルバムは表示できません')
+                : TextButton(
+                    onPressed: () =>
+                        openSearchItem(n, 'album', albumQuote['id'] as String),
+                    child: Text('引用アルバム　${albumQuote['title']}'),
+                  ),
           ),
         if (post['quoteId'] != null)
           Padding(

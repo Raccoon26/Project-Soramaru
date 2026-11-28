@@ -4,6 +4,7 @@ import { encode } from 'jpeg-js';
 import { migrate,simulator } from './local-backend.mjs';
 import { MediaStore } from '../services/api/src/media.ts';
 import { inspectPhoto } from '../services/api/src/photo-format.ts';
+import { indexedText } from '../services/api/src/search-index.ts';
 import { query,digest } from '../services/api/src/platform.ts';
 
 export function syntheticJpeg(width=128,height=84,shade=0,quality=86) {
@@ -32,7 +33,7 @@ export async function seedPhotos(env,now=Date.now()) {
   await DB.batch(ids.flatMap((id,i)=>[
     query(DB,'INSERT INTO member_numbers VALUES (?,0) ON CONFLICT DO NOTHING','PICFIX000'+i),
     query(DB,"INSERT INTO members(id,auth_uid,member_no,state,joined_at,updated_at) VALUES (?,NULL,?,'active',0,0) ON CONFLICT DO NOTHING",id,'PICFIX000'+i),
-    query(DB,"INSERT INTO member_profiles(member_id,nickname,updated_at) VALUES (?,'合成写真担当',0) ON CONFLICT DO NOTHING",id),
+    query(DB,"INSERT INTO member_profiles(member_id,nickname,updated_at,configured_at) VALUES (?,'合成写真担当',0,0) ON CONFLICT DO NOTHING",id),
   ]));
   await DB.batch([
     query(DB,"INSERT INTO official_identities VALUES (?,?,'合成アーティスト',1) ON CONFLICT DO NOTHING",identity,artist),
@@ -56,6 +57,7 @@ export async function seedPhotos(env,now=Date.now()) {
     query(DB,"INSERT INTO content_items VALUES (?,?,'gallery','光と色のサンプル','approved','members',?,?,?,1)",
       syntheticAlbum,artist,now,now,now),
     query(DB,"INSERT INTO photo_albums VALUES (?,?,'synthetic')",syntheticAlbum,identity),
+    indexedText(DB,'album',syntheticAlbum,'光と色のサンプル',1),
     ...attach.map((id,i)=>query(DB,'INSERT INTO photo_album_items VALUES (?,?,?)',syntheticAlbum,id,i)),
   ]);
   return {id:syntheticAlbum,photos:attach,artist};

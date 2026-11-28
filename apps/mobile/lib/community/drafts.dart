@@ -25,20 +25,27 @@ class Draft {
     this.body = '',
     this.tags = const [],
     this.quoteId,
+    this.quoteAlbumId,
     this.postId,
     this.version,
     this.requestKey,
     this.attachments = const [],
   });
-  factory Draft.fresh({String? quoteId}) {
+  factory Draft.fresh({String? quoteId, String? quoteAlbumId}) {
     final now = DateTime.now().millisecondsSinceEpoch;
-    return Draft(id: draftId(), started: now, updated: now, quoteId: quoteId);
+    return Draft(
+      id: draftId(),
+      started: now,
+      updated: now,
+      quoteId: quoteId,
+      quoteAlbumId: quoteAlbumId,
+    );
   }
 
   final String id, body;
   final int started, updated;
   final List<String> tags, attachments;
-  final String? quoteId, postId, requestKey;
+  final String? quoteId, quoteAlbumId, postId, requestKey;
   final int? version;
 
   Map<String, Object?> toJson() => {
@@ -48,6 +55,7 @@ class Draft {
     'body': body,
     'tags': tags,
     'quote': quoteId,
+    'albumQuote': quoteAlbumId,
     'post': postId,
     'version': version,
     'requestKey': requestKey,
@@ -61,6 +69,7 @@ class Draft {
     body: map['body'] as String,
     tags: (map['tags'] as List).cast<String>(),
     quoteId: map['quote'] as String?,
+    quoteAlbumId: map['albumQuote'] as String?,
     postId: map['post'] as String?,
     version: map['version'] as int?,
     requestKey: map['requestKey'] as String?,
@@ -94,9 +103,11 @@ class OsDraftKeys implements DraftKeys {
 class DraftDatabase extends GeneratedDatabase {
   DraftDatabase(super.executor);
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
   @override
   Iterable<TableInfo> get allTables => const [];
+  static const createSearchHistory =
+      'CREATE TABLE search_history(owner TEXT NOT NULL,id TEXT NOT NULL,seen INTEGER NOT NULL,blob BLOB NOT NULL,PRIMARY KEY(owner,id))';
   static const createPhotos =
       'CREATE TABLE draft_photos(owner TEXT NOT NULL,draft TEXT NOT NULL,id TEXT NOT NULL,blob BLOB NOT NULL,PRIMARY KEY(owner,id))';
   @override
@@ -106,6 +117,7 @@ class DraftDatabase extends GeneratedDatabase {
         'CREATE TABLE drafts(owner TEXT NOT NULL,id TEXT NOT NULL,updated INTEGER NOT NULL,blob TEXT NOT NULL,PRIMARY KEY(owner,id))',
       );
       await customStatement(createPhotos);
+      await customStatement(createSearchHistory);
     },
     onUpgrade: (_, from, to) async {
       if (from == 1) {
@@ -113,11 +125,9 @@ class DraftDatabase extends GeneratedDatabase {
           'ALTER TABLE drafts ADD COLUMN updated INTEGER NOT NULL DEFAULT 0',
         );
       }
-      if (from == 1 || from == 2) {
-        await customStatement(createPhotos);
-      } else {
-        throw StateError('Unknown drafts schema');
-      }
+      if (from < 1 || from > 3) throw StateError('Unknown drafts schema');
+      if (from < 3) await customStatement(createPhotos);
+      await customStatement(createSearchHistory);
     },
     beforeOpen: (_) async {
       await customStatement('PRAGMA secure_delete=ON');
@@ -293,7 +303,93 @@ class DraftRepository {
     }),
   );
 
+  Future<void> rememberSearch(
+    String owner,
+    String kind,
+    String text,
+    String normalized,
+  ) => _serial(() async {
+    var raw = await keys.read(owner);
+    if (raw == null) {
+      raw = base64Encode(await (await _cipher.newSecretKey()).extractBytes());
+      await keys.write(owner, raw);
+    }
+    final key = SecretKey(base64Decode(raw));
+    final mac = await Hmac.sha256().calculateMac(
+      utf8.encode('search:$kind:$normalized'),
+      secretKey: key,
+    );
+    final id = base64UrlEncode(mac.bytes);
+    final box = await _cipher.encrypt(
+      utf8.encode(jsonEncode({'kind': kind, 'text': text})),
+      secretKey: key,
+      aad: utf8.encode('search:$owner:$id'),
+    );
+    await database.transaction(() async {
+      await database.customStatement(
+        'INSERT INTO search_history VALUES (?,?,?,?) ON CONFLICT(owner,id) DO UPDATE SET seen=excluded.seen,blob=excluded.blob',
+        [
+          owner,
+          id,
+          DateTime.now().millisecondsSinceEpoch,
+          Uint8List.fromList(box.concatenation()),
+        ],
+      );
+      await database.customStatement(
+        'DELETE FROM search_history WHERE owner=? AND id IN (SELECT id FROM search_history WHERE owner=? ORDER BY seen DESC,id DESC LIMIT -1 OFFSET 30)',
+        [owner, owner],
+      );
+    });
+  });
+
+  Future<List<({String id, String kind, String text})>> searchHistory(
+    String owner,
+  ) => _serial(() async {
+    final raw = await keys.read(owner);
+    if (raw == null) return [];
+    final result = <({String id, String kind, String text})>[];
+    final rows = await database
+        .customSelect(
+          'SELECT id,blob FROM search_history WHERE owner=? ORDER BY seen DESC,id DESC LIMIT 30',
+          variables: [Variable(owner)],
+        )
+        .get();
+    for (final row in rows) {
+      final id = row.read<String>('id');
+      try {
+        final bytes = await _cipher.decrypt(
+          SecretBox.fromConcatenation(
+            row.read<Uint8List>('blob'),
+            nonceLength: 12,
+            macLength: 16,
+          ),
+          secretKey: SecretKey(base64Decode(raw)),
+          aad: utf8.encode('search:$owner:$id'),
+        );
+        final value = jsonDecode(utf8.decode(bytes)) as Map<String, Object?>;
+        result.add((
+          id: id,
+          kind: value['kind'] as String,
+          text: value['text'] as String,
+        ));
+      } on SecretBoxAuthenticationError {
+        continue;
+      }
+    }
+    return result;
+  });
+
+  Future<void> removeSearch(String owner, [String? id]) => _serial(
+    () => database.customStatement(
+      'DELETE FROM search_history WHERE owner=?${id == null ? "" : " AND id=?"}',
+      [owner, ?id],
+    ),
+  );
+
   Future<void> purge(String owner) => _serial(() async {
+    await database.customStatement('DELETE FROM search_history WHERE owner=?', [
+      owner,
+    ]);
     await keys.remove(owner);
     await database.customStatement('DELETE FROM draft_photos WHERE owner=?', [
       owner,

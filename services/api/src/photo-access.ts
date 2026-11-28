@@ -6,22 +6,26 @@ import { openCursor,pageSize,sealCursor } from './paging.ts';
 import { query } from './platform.ts';
 import type { Database,Env,SqlValue } from './platform.ts';
 
-import { acceptedComment,memberVisible,postVisible,requestTime,viewer,visibilityCte } from './visibility.ts';
+import { acceptedComment,memberVisible,postPhotoVisible,postVisible,requestTime,viewer,visibilityCte } from './visibility.ts';
 
 export type PhotoContext='post'|'profile'|'album'|'comment';
 export interface PhotoParent {kind:PhotoContext;id:string}
 export type PhotoVariant='full'|'thumb';
 
-const albumJoin=`FROM content_items c JOIN photo_albums a ON a.content_id=c.id
+export const albumJoin=`FROM content_items c JOIN photo_albums a ON a.content_id=c.id
  JOIN official_identities o ON o.id=a.identity_id AND o.member_id=c.publisher_id`;
-const albumVisible=`c.kind='gallery' AND c.state='approved' AND c.visibility='members' AND c.publish_at<=?
- AND a.rights_state IN ('approved','synthetic') AND o.active=1 AND ${memberVisible('c.publisher_id')}
+export function galleryVisible(member='?',now='?') {
+  return `c.kind='gallery' AND c.state='approved' AND c.visibility='members' AND c.publish_at<=${now}
+ AND a.rights_state IN ('approved','synthetic') AND o.active=1 AND ${memberVisible('c.publisher_id',member)}
  AND (EXISTS(SELECT 1 FROM role_grants g WHERE g.member_id=c.publisher_id AND g.role='artist'
-    AND g.revoked_at IS NULL AND g.starts_at<=? AND (g.ends_at IS NULL OR g.ends_at>?))
+    AND g.revoked_at IS NULL AND g.starts_at<=${now} AND (g.ends_at IS NULL OR g.ends_at>${now}))
   OR (EXISTS(SELECT 1 FROM content_operator_grants g WHERE g.member_id=c.publisher_id
-    AND g.revoked_at IS NULL AND g.starts_at<=? AND g.ends_at>?)
+    AND g.revoked_at IS NULL AND g.starts_at<=${now} AND g.ends_at>${now})
     AND NOT EXISTS(SELECT 1 FROM role_grants ar WHERE ar.member_id=c.publisher_id AND ar.role='administrator'
-    AND ar.revoked_at IS NULL AND ar.starts_at<=? AND (ar.ends_at IS NULL OR ar.ends_at>?))))`;
+    AND ar.revoked_at IS NULL AND ar.starts_at<=${now} AND (ar.ends_at IS NULL OR ar.ends_at>${now}))))`;
+}
+
+const albumVisible=galleryVisible();
 
 export class PhotoAccess {
   readonly actor:string;
@@ -42,9 +46,9 @@ export class PhotoAccess {
   private references(parent:PhotoParent) {
     switch(parent.kind) {
       case 'post':return {
-        sql:`SELECT p.author_id AS owner,pm.media_id FROM post_media pm JOIN posts p ON p.id=pm.post_id
-          WHERE p.id=? AND ${postVisible('p')}`,
-        params:[parent.id,this.now,this.actor,this.actor],purpose:'post',
+        sql:`${visibilityCte} SELECT p.author_id AS owner,pm.media_id FROM post_media pm JOIN posts p ON p.id=pm.post_id
+          WHERE p.id=? AND ${postVisible('p',viewer,requestTime)} AND ${postPhotoVisible('p.id','pm.media_id',viewer,requestTime)}`,
+        params:[this.actor,this.now,parent.id],purpose:'post',
       };
       case 'comment':return {
         sql:`${visibilityCte} SELECT c.author_id AS owner,cm.media_id FROM comment_media cm

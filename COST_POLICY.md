@@ -60,3 +60,7 @@ DEV-00의 계획 수치는 비교를 위해 보존했다. DEV-03 모형은 공�
 ## DEV-07 댓글과 반응
 
 기존 70/80/90/95/98% 비용 정책과 12개 기능 플래그를 상호작용에도 적용한다. 댓글 및 반응 쓰기는 `comments_enabled`, 사진 예약은 `image_upload_enabled`, 전송 후보 생성은 `notifications_enabled`로 제어한다. 신고 예산은 별도 우선순위를 사용한다. [비용 모델](REACTION_GUIDE.md)
+
+## DEV-08 비용 경계
+
+검색 집계, 500MB 개별 D1 용량, 수신 대기 Outbox와 검색 인덱스를 비용 모델에 포함한다. 비필수 검색은 80% 감축 예산과 search_enabled를 적용한다. 정상 게시물 삭제나 유료 플랜 자동 전환을 사용하지 않는다. [비용 제어](COST_CONTROL_GUIDE.md) · [보존 가이드](DATA_RETENTION_GUIDE.md)

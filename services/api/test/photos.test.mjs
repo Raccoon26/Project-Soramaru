@@ -63,7 +63,7 @@ async function check(action) {
       query(DB,"INSERT INTO members(id,auth_uid,member_no,state,joined_at,updated_at) VALUES (?,?,'PICTEST0001','active',0,0)",id,uid),
     ]);
     assert.equal(await migrate(DB,path.slice(0,8)),8);
-    assert.equal(await migrate(DB,path),9);
+    assert.equal(await migrate(DB,path),11);
     assert.equal((await query(DB,'SELECT id FROM members WHERE auth_uid=?',uid).first()).id,id);
     const plan=await query(DB,'EXPLAIN QUERY PLAN SELECT id FROM media_objects WHERE variant_of=? AND owner_id=?',id,id).all();
     assert.ok(plan.results.some(row=>row.detail.includes('media_thumbnail')));

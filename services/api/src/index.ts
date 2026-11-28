@@ -18,8 +18,12 @@ import { observeDatabase } from './membership-metrics.ts';
 import { communityTarget,handleCommunity } from './community-api.ts';
 
 import { handlePhoto,photoTarget } from './photo-api.ts';
+import { discoveryTarget,handleDiscovery } from './discovery-api.ts';
+import { refreshPopular } from './discovery.ts';
+import { pruneDiscoveryData } from './discovery-retention.ts';
+import { backfillSearch,type SearchKind } from './search-index.ts';
 
-type Operation = 'health' | 'readiness' | 'session' | 'community' | 'photo' | 'membership' | 'unknown';
+type Operation = 'health' | 'readiness' | 'session' | 'community' | 'discovery' | 'photo' | 'membership' | 'unknown';
 interface Event {
   requestId: string;
   operation: Operation;
@@ -70,13 +74,14 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
     const target=membership?membershipTarget(url.pathname):null;
     const community=membership?communityTarget(url.pathname):null;
     const photo=membership?photoTarget(url.pathname):null;
-    const route=target??community??photo;
+    const discovery=membership?discoveryTarget(url.pathname):null;
+    const route=discovery??target??community??photo;
     if (route&&membership) {
-      operation=photo?'photo':community?'community':'membership';
+      operation=discovery?'discovery':photo?'photo':community?'community':'membership';
       if (!route.methods.split(', ').includes(request.method)) {
         return send(failure(new HttpError(405,'method_not_allowed'),id,route.methods));
       }
-      if ((url.search&&!community&&!photo)||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
+      if ((url.search&&!community&&!photo&&!discovery)||(['GET','DELETE'].includes(request.method)&&request.body!==null)) {
         return send(failure(new HttpError(400,'invalid_request'),id));
       }
       const now=clock();
@@ -87,7 +92,7 @@ export function createApi(overrides: Partial<Dependencies> = {}) {
           const observed=observeDatabase(env.DB,value=>meta.push(value));
           const activeEnv={...env,DB:observed};
           const scope=network()??'unattributed';
-          const result=photo?await handlePhoto(request,url,photo,activeEnv,membership,clock,readReservations,scope):community
+          const result=discovery?await handleDiscovery(request,url,discovery,activeEnv,membership,now,readReservations,scope):photo?await handlePhoto(request,url,photo,activeEnv,membership,clock,readReservations,scope):community
             ? await handleCommunity(request,url,community,activeEnv,membership,now,readReservations,scope)
             : await handleMembership(request,target!,activeEnv,membership,now,readReservations,scope);
           if(result instanceof Response) {
@@ -177,13 +182,25 @@ export default {
       WHERE (name='scheduled_jobs_enabled' AND enabled=1) OR (name='maintenance_mode' AND enabled=0)`).first<{open:number}>();
     const normal=optional?.open===2&&admission.tier==='normal';
     if(normal&&window%4===0) {
+      const discovery=await budget.admit('optional-write',{d1Reads:580,d1Writes:130,d1IndexWrites:30},now,['search_enabled','scheduled_jobs_enabled']);
+      if(discovery.allowed) await enqueue(env.DB,'maintain_discovery','discovery:'+Math.floor(window/4),{hour:Math.floor(window/4)},now).run();
       const pending=await query(env.DB,`SELECT 1 FROM scheduled_jobs WHERE kind='reconcile_media'
         AND state IN ('ready','leased') LIMIT 1`).first();
       if(!pending) await enqueue(env.DB,'reconcile_media','media-scan:'+window,{},now).run();
     }
     await runJobs(env.DB,{
       expire_uploads:async () => { await store.expire(); if(normal) await store.prunePhotos(); },
-      ...(normal?{reconcile_media:async (payload:unknown,jobId:string)=>{
+      ...(normal?{maintain_discovery:async (payload:unknown)=>{
+        const hour=(payload as {hour:number}).hour;
+        const kinds:SearchKind[]=['post','member','tag','album'];
+        if(!Number.isSafeInteger(hour)||hour<0) throw new Error('Invalid discovery window');
+        const budgeted=await budget.admit('bulk',{d1Reads:2_500,d1Writes:250,d1IndexWrites:70},now,
+          ['search_enabled','scheduled_jobs_enabled']);
+        if(!budgeted.allowed)throw new Error('Discovery budget paused');
+        await refreshPopular(env.DB,now);
+        await pruneDiscoveryData(env.DB,now);
+        await backfillSearch(env.DB,kinds[hour%kinds.length]!,10);
+      },reconcile_media:async (payload:unknown,jobId:string)=>{
         const inputs=payload as {quarantine?:string|null;private?:string|null;catalog?:string|null};
         const next:{quarantine:string|null;private:string|null;catalog:string|null}={quarantine:null,private:null,catalog:null};
         for(const bucket of ['quarantine','private'] as const) {

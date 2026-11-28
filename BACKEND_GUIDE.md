@@ -51,3 +51,7 @@ DEV-04는 Firebase 검증기와 서버 세션 발급, DEV-05~08은 페이지/차
 ## DEV-07 댓글과 반응
 
 DEV-07 통합은 로컬 v9와 테스트 회원을 사용한다. `node --test services/api/test/interactions.test.mjs`에서 부모 제약·스탬프·반응·R2·복원을 재현한다. `npm run test:membership`는 별도의 로컬 Firebase Auth Emulator와 workerd를 사용한다.
+
+## DEV-08 후속 연결
+
+discover 경로는 기존 Firebase·D1 세션·공통 쓰기 승인과 오류 봉투를 사용한다. 유지 작업은 maintain_discovery 임대에서 태그 샘플·검색 역채움·제한된 정리를 처리한다. DEV-11 공식 갤러리 저장에는 제목 인덱스와 원본 버전 갱신을 함께 사용한다. [검색](SEARCH_GUIDE.md) · [보존](DATA_RETENTION_GUIDE.md)
